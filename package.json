@@ -1,0 +1,30 @@
+{
+  "name": "groove",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "supabase:start": "npx supabase start --workdir ./supabase",
+    "supabase:stop": "npx supabase stop --workdir ./supabase"
+  },
+  "dependencies": {
+    "@nuxt/eslint": "1.13.0",
+    "@nuxt/ui": "4.4.0",
+    "@nuxtjs/supabase": "^2.0.3",
+    "eslint": "^9.0.0",
+    "nuxt": "^4.3.0",
+    "supabase": "^2.75.5",
+    "tailwindcss": "^4.0.0",
+    "typescript": "^5.6.3",
+    "vue": "^3.5.27",
+    "vue-router": "^4.6.4",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "supabase": "^2.75.5"
+  }
+}
