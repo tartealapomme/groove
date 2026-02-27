@@ -87,7 +87,7 @@ groove/
 └── types/              # Personne 3: Types TypeScript Partagés
 ```
 
-### Personne 1: Backend-for-Frontend (BFF) & API Externe
+### Personne 1: Backend-for-Frontend (BFF) & API Externe Ulysse
 
 **Responsabilités :**
 - Implémentation des routes `/server/api/` pour communiquer avec Discogs
@@ -106,7 +106,7 @@ server/api/
     └── discogs.ts          # Client Discogs configuré
 ```
 
-### Personne 2: Interface Utilisateur & Navigation
+### Personne 2: Interface Utilisateur & Navigation Timéo
 
 **Responsabilités :**
 - Création des pages et composants UI
@@ -128,7 +128,7 @@ components/
 └── FavoriteButton.vue     # Bouton favori
 ```
 
-### Personne 3: Logique Métier & Données
+### Personne 3: Logique Métier & Données Nathan
 
 **Responsabilités :**
 - Configuration Supabase et schéma de base de données
