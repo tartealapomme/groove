@@ -1,0 +1,84 @@
+---
+description: Direction artistique et design system GROOV. Applique ces règles à toutes les pages, composants et layouts du projet.
+globs: "**/*.vue,**/*.css"
+alwaysApply: false
+---
+
+# GROOV — Design System
+
+## Identité
+
+- **Style** : Marketplace sobre, noir & blanc, typé e-commerce haut de gamme (inspiré Grailed, SSENSE, END.)
+- **Ton** : Précis, épuré, confiance. Pas de landing page flashy — une interface fonctionnelle et engageante.
+
+## Palette de couleurs
+
+Toutes les couleurs passent par les variables `g-*` définies dans `@theme` (`app/assets/css/main.css`). Ne jamais utiliser de couleurs Tailwind brutes (`black`, `white`, `gray-*`).
+
+| Token | Valeur | Usage |
+|-------|--------|-------|
+| `g-black` | `#171717` | Header, boutons CTA, éléments forts |
+| `g-950` | `#131313` | Fond des modals/popups |
+| `g-900` | `#111111` | — |
+| `g-800` | `#1c1c1c` | — |
+| `g-700` | `#282828` | Fond inputs sur fond sombre |
+| `g-600` | `#3a3a3a` | Bordures inputs sur fond sombre |
+| `g-500` | `#666666` | Bordures, séparateurs |
+| `g-400` | `#888888` | Texte secondaire, placeholders |
+| `g-300` | `#aaaaaa` | Labels sur fond sombre |
+| `g-200` | `#d4d4d4` | Bordures sur fond clair |
+| `g-100` | `#e8e8e8` | Bordures subtiles, séparateurs |
+| `g-50` | `#f5f5f5` | Fond de page (body) |
+| `g-white` | `#ffffff` | Texte sur fond sombre, boutons inversés |
+
+## Typographie
+
+- **Display & Body** : Inter (via `--font-display` et `--font-body`)
+- **Mono** : SF Mono / Menlo (via `--font-mono`) — pour conditions vinyle, badges techniques
+
+## Composants récurrents
+
+### Header (nav)
+- Fond `bg-g-black`, sticky `top-0 z-50`
+- Logo blanc (`groov_logo_blanc.svg`), hauteur `h-9`
+- Hauteur nav : `h-24`
+- Searchbar : `bg-g-700 border-g-500`, focus → `bg-g-600 border-g-400`
+- Boutons : "Connexion" en `text-g-400 hover:text-g-white`, "S'inscrire" en `bg-g-white text-g-black`
+
+### Boutons
+- CTA principal : `bg-g-black text-g-white hover:bg-g-700 rounded-lg`
+- CTA inversé (sur fond sombre) : `bg-g-white text-g-black hover:bg-g-200 rounded-lg`
+- Tous les boutons cliquables : `cursor-pointer`
+
+### Filtres (pills)
+- Non actif : `text-g-500 hover:bg-g-50 hover:text-g-black`
+- Actif : `bg-g-black text-g-white`
+- Tous en `rounded-lg`
+
+### Cards vinyle
+- Cover carrée `aspect-square rounded-lg`
+- Hover : zoom léger `scale-[1.04]` + overlay gradient avec prix et "Voir →"
+- Badge condition : `font-mono`, `bg-g-black/50 text-g-white backdrop-blur-sm`
+- Infos sous la cover : titre `text-g-950 font-semibold`, artiste `text-g-500`, prix `font-bold`
+
+### Modals (login/register)
+- Fond `bg-g-950`, `rounded-lg p-8`
+- Titres : `text-g-white`
+- Labels : `text-g-300`
+- Inputs : `bg-g-700 border-g-500 text-g-white placeholder-g-400`
+- Focus inputs : `bg-g-600 border-g-300`, pas de ring vert (désactivé globalement)
+- Bouton submit : `bg-g-white text-g-black`
+- Liens switch : `text-g-white underline underline-offset-4`
+
+### Footer
+- Logo noir (`groov_logo_noir.svg`), `opacity-30`
+- Liens : `text-g-400 hover:text-g-950`
+
+## Règles strictes
+
+- **border-radius** : `rounded-lg` partout, sans exception
+- **cursor** : `cursor-pointer` sur tout élément cliquable
+- **Pas de couleur Tailwind brute** : toujours utiliser `g-*`
+- **Pas de ring de focus vert** : désactivé dans le CSS global
+- **Logo** : blanc sur fond sombre, noir sur fond clair
+- **Fond body** : `g-50` (`#f5f5f5`), jamais blanc pur ni noir pur

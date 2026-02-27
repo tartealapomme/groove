@@ -17,16 +17,16 @@ const filters = [
 ]
 
 const vinyls = [
-  { title: 'The Dark Side of the Moon', artist: 'Pink Floyd', year: '1973', label: 'Harvest', country: '🇯🇵', condition: 'NM', price: '€285', genre: 'rock', color: '#1a1a2e' },
-  { title: 'Kind of Blue', artist: 'Miles Davis', year: '1959', label: 'Columbia', country: '🇺🇸', condition: 'VG+', price: '€420', genre: 'jazz', color: '#0f3460' },
-  { title: 'Discovery', artist: 'Daft Punk', year: '2001', label: 'Virgin', country: '🇫🇷', condition: 'NM', price: '€95', genre: 'electronic', color: '#e94560' },
-  { title: 'OK Computer', artist: 'Radiohead', year: '1997', label: 'Parlophone', country: '🇬🇧', condition: 'NM', price: '€145', genre: 'rock', color: '#533483' },
-  { title: 'Rumours', artist: 'Fleetwood Mac', year: '1977', label: 'Warner Bros', country: '🇩🇪', condition: 'VG+', price: '€68', genre: 'rock', color: '#4a3728' },
-  { title: 'What\'s Going On', artist: 'Marvin Gaye', year: '1971', label: 'Tamla', country: '🇺🇸', condition: 'VG', price: '€180', genre: 'soul', color: '#2d6a4f' },
-  { title: 'Homework', artist: 'Daft Punk', year: '1997', label: 'Virgin', country: '🇫🇷', condition: 'NM', price: '€110', genre: 'electronic', color: '#d4a373' },
-  { title: 'Head Hunters', artist: 'Herbie Hancock', year: '1973', label: 'Columbia', country: '🇺🇸', condition: 'VG+', price: '€55', genre: 'jazz', color: '#bc6c25' },
-  { title: 'Illmatic', artist: 'Nas', year: '1994', label: 'Columbia', country: '🇺🇸', condition: 'NM', price: '€75', genre: 'hiphop', color: '#6b705c' },
-  { title: 'Loveless', artist: 'My Bloody Valentine', year: '1991', label: 'Creation', country: '🇬🇧', condition: 'VG+', price: '€320', genre: 'rock', color: '#c9184a' },
+  { id: 'dark-side-of-the-moon', title: 'The Dark Side of the Moon', artist: 'Pink Floyd', year: '1973', label: 'Harvest', condition: 'NM', price: '€285', genre: 'rock', color: '#1a1a2e' },
+  { id: 'kind-of-blue', title: 'Kind of Blue', artist: 'Miles Davis', year: '1959', label: 'Columbia', condition: 'VG+', price: '€420', genre: 'jazz', color: '#0f3460' },
+  { id: 'discovery', title: 'Discovery', artist: 'Daft Punk', year: '2001', label: 'Virgin', condition: 'NM', price: '€95', genre: 'electronic', color: '#e94560' },
+  { id: 'ok-computer', title: 'OK Computer', artist: 'Radiohead', year: '1997', label: 'Parlophone', condition: 'NM', price: '€145', genre: 'rock', color: '#533483' },
+  { id: 'rumours', title: 'Rumours', artist: 'Fleetwood Mac', year: '1977', label: 'Warner Bros', condition: 'VG+', price: '€68', genre: 'rock', color: '#4a3728' },
+  { id: 'whats-going-on', title: 'What\'s Going On', artist: 'Marvin Gaye', year: '1971', label: 'Tamla', condition: 'VG', price: '€180', genre: 'soul', color: '#2d6a4f' },
+  { id: 'homework', title: 'Homework', artist: 'Daft Punk', year: '1997', label: 'Virgin', condition: 'NM', price: '€110', genre: 'electronic', color: '#d4a373' },
+  { id: 'head-hunters', title: 'Head Hunters', artist: 'Herbie Hancock', year: '1973', label: 'Columbia', condition: 'VG+', price: '€55', genre: 'jazz', color: '#bc6c25' },
+  { id: 'illmatic', title: 'Illmatic', artist: 'Nas', year: '1994', label: 'Columbia', condition: 'NM', price: '€75', genre: 'hiphop', color: '#6b705c' },
+  { id: 'loveless', title: 'Loveless', artist: 'My Bloody Valentine', year: '1991', label: 'Creation', condition: 'VG+', price: '€320', genre: 'rock', color: '#c9184a' },
 ]
 
 const filteredVinyls = computed(() => {
@@ -83,9 +83,14 @@ const trendingArtists = [
           <UButton size="md" class="cursor-pointer rounded-lg bg-g-white px-5 text-[15px] font-medium text-g-black hover:bg-g-200" @click="openRegister">
             S'inscrire
           </UButton>
+          <NuxtLink to="/" class="flex cursor-pointer items-center text-g-400 transition-colors hover:text-g-white">
+            <UIcon name="i-lucide-shopping-bag" class="h-5 w-5" />
+          </NuxtLink>
         </div>
       </div>
     </nav>
+
+    <SubNav />
 
     <!-- ─── HERO ─── -->
     <section class="border-b border-g-100 px-6 pb-12 pt-14">
@@ -185,9 +190,10 @@ const trendingArtists = [
         v-if="filteredVinyls.length"
         class="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
       >
-        <div
+        <NuxtLink   
           v-for="vinyl in filteredVinyls"
-          :key="vinyl.title + vinyl.country"
+          :key="vinyl.id"
+          :to="`/vinyl/${vinyl.id}`"
           class="group cursor-pointer"
         >
           <!-- Cover placeholder -->
@@ -228,7 +234,7 @@ const trendingArtists = [
               <span class="text-[11px] text-g-400">{{ vinyl.label }} · {{ vinyl.year }}</span>
             </div>
           </div>
-        </div>
+        </NuxtLink>
       </div>
 
       <!-- Empty state -->
@@ -243,15 +249,16 @@ const trendingArtists = [
         </button>
       </div>
 
-      <!-- Load more -->
+      <!-- Voir tout -->
       <div v-if="filteredVinyls.length" class="mt-14 text-center">
-        <UButton
-          size="md"
-          class="cursor-pointer rounded-lg bg-g-black px-8 text-sm font-medium text-g-white hover:bg-g-700"
-          @click="openRegister"
-        >
-          S'inscrire pour voir plus
-        </UButton>
+        <NuxtLink to="/explore">
+          <UButton
+            size="md"
+            class="cursor-pointer rounded-lg bg-g-black px-8 text-sm font-medium text-g-white hover:bg-g-700"
+          >
+            Explorer tout le catalogue
+          </UButton>
+        </NuxtLink>
       </div>
     </main>
 
