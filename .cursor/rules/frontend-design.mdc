@@ -1,0 +1,50 @@
+---
+description: Create distinctive, production-grade frontend interfaces. Activates when working on Vue components, pages, layouts, or CSS files.
+globs: "**/*.vue,**/*.css,**/*.html"
+alwaysApply: false
+---
+
+# Frontend Design — Groove
+
+Create distinctive, production-grade frontend interfaces that avoid generic "AI slop" aesthetics. Implement real working code with exceptional attention to aesthetic details and creative choices.
+
+## Stack
+
+- **Framework**: Nuxt 4 + Vue 3 (Composition API, `<script setup>`)
+- **Styling**: Tailwind CSS v4 (config via `@theme` in CSS, no `tailwind.config`)
+- **Components**: Nuxt UI (`UButton`, `UCard`, `UInput`, etc.)
+- **Icons**: Nuxt UI icon set
+
+## Design Thinking
+
+Before coding any UI, commit to a BOLD aesthetic direction:
+
+1. **Purpose**: What problem does this interface solve? Who uses it?
+2. **Tone**: Pick a clear direction — brutally minimal, retro-futuristic, editorial/magazine, luxury/refined, playful, brutalist/raw, organic, etc.
+3. **Differentiation**: What makes this UNFORGETTABLE?
+
+Execute with precision. Bold maximalism and refined minimalism both work — the key is intentionality.
+
+## Aesthetic Rules
+
+- **Typography**: Choose distinctive, characterful fonts. NEVER default to Inter, Roboto, Arial, or system fonts. Pair a display font with a refined body font.
+- **Color & Theme**: Commit to a cohesive palette using CSS variables / Tailwind `@theme`. Dominant colors with sharp accents > timid evenly-distributed palettes.
+- **Motion**: Prioritize CSS-only animations. Focus on high-impact moments: staggered reveals, scroll-triggered effects, surprising hover states.
+- **Spatial Composition**: Unexpected layouts, asymmetry, overlap, grid-breaking elements, generous negative space OR controlled density.
+- **Backgrounds & Texture**: Atmosphere and depth over flat solid colors — gradient meshes, noise, geometric patterns, layered transparencies, grain overlays.
+
+## Anti-Patterns (NEVER do this)
+
+- Generic purple gradients on white backgrounds
+- Overused font stacks (Inter, Roboto, Arial)
+- Predictable card-grid layouts with no personality
+- Cookie-cutter components that lack context-specific character
+- Converging on the same font (e.g. Space Grotesk) across generations
+
+## Implementation Quality
+
+- Always use `<script setup lang="ts">` with proper TypeScript
+- Use Nuxt UI components where appropriate, customize with Tailwind classes
+- Include loading states, error boundaries, and accessibility (aria, focus, reduced-motion)
+- Use `@theme` in CSS for design tokens instead of hardcoded values
+- Every design should be different — vary themes, fonts, and aesthetics
