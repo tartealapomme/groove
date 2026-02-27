@@ -5,6 +5,15 @@ export default defineNuxtConfig({
   modules: ["@nuxt/eslint", "@nuxt/ui", "@nuxtjs/supabase"],
   css: ["~/assets/css/main.css"],
 
+  app: {
+    head: {
+      link: [
+        { rel: "icon", type: "image/png", href: "/favicon.png" },
+      ],
+    },
+  },
+
+
   ui: {
     colorMode: false,
   },
