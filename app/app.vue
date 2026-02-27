@@ -70,6 +70,7 @@ async function onRegister(payload: FormSubmitEvent<RegisterSchema>) {
 
 <template>
   <UApp>
+    <NuxtLoadingIndicator color="#fff" :height="2" :throttle="200" />
     <NuxtRouteAnnouncer />
     <NuxtPage />
 

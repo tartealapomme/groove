@@ -1,36 +1,59 @@
 <script lang="ts" setup>
 import logoBlanc from '~/assets/img/groov_logo_blanc.svg'
-import logoNoir from '~/assets/img/groov_logo_noir.svg'
 
 const { openLogin, openRegister } = useAuthModal()
-const searchQuery = ref('')
+const { searchReleases } = useDiscogs()
+const { extractColor } = useDominantColor()
 
 type ViewMode = 'showcase' | 'grid'
 const viewMode = ref<ViewMode>('showcase')
 const currentIndex = ref(0)
 const isTransitioning = ref(false)
 
-const collection = [
-  { id: 'dark-side', title: 'The Dark Side of the Moon', artist: 'Pink Floyd', year: '1973', genre: 'Rock', label: 'Harvest', condition: 'NM', color: '#1a1a2e', value: 285, added: '15 jan. 2025' },
-  { id: 'kind-of-blue', title: 'Kind of Blue', artist: 'Miles Davis', year: '1959', genre: 'Jazz', label: 'Columbia', condition: 'VG+', color: '#0f3460', value: 420, added: '20 fév. 2025' },
-  { id: 'discovery', title: 'Discovery', artist: 'Daft Punk', year: '2001', genre: 'Electronic', label: 'Virgin', condition: 'NM', color: '#e94560', value: 95, added: '10 mar. 2025' },
-  { id: 'ok-computer', title: 'OK Computer', artist: 'Radiohead', year: '1997', genre: 'Rock', label: 'Parlophone', condition: 'NM', color: '#533483', value: 145, added: '5 avr. 2025' },
-  { id: 'rumours', title: 'Rumours', artist: 'Fleetwood Mac', year: '1977', genre: 'Rock', label: 'Warner Bros', condition: 'VG+', color: '#4a3728', value: 68, added: '12 mai 2025' },
-  { id: 'whats-going-on', title: "What's Going On", artist: 'Marvin Gaye', year: '1971', genre: 'Soul', label: 'Tamla', condition: 'VG', color: '#2d6a4f', value: 180, added: '18 juin 2025' },
-  { id: 'homework', title: 'Homework', artist: 'Daft Punk', year: '1997', genre: 'Electronic', label: 'Virgin', condition: 'NM', color: '#d4a373', value: 110, added: '22 juil. 2025' },
-  { id: 'illmatic', title: 'Illmatic', artist: 'Nas', year: '1994', genre: 'Hip-Hop', label: 'Columbia', condition: 'NM', color: '#6b705c', value: 75, added: '30 août 2025' },
-  { id: 'loveless', title: 'Loveless', artist: 'My Bloody Valentine', year: '1991', genre: 'Rock', label: 'Creation', condition: 'VG+', color: '#c9184a', value: 320, added: '15 sept. 2025' },
-  { id: 'abbey-road', title: 'Abbey Road', artist: 'The Beatles', year: '1969', genre: 'Rock', label: 'Apple', condition: 'VG+', color: '#5c7a99', value: 195, added: '2 oct. 2025' },
-  { id: 'blue-train', title: 'Blue Train', artist: 'John Coltrane', year: '1958', genre: 'Jazz', label: 'Blue Note', condition: 'VG', color: '#1a365d', value: 380, added: '8 nov. 2025' },
-  { id: 'remain-in-light', title: 'Remain in Light', artist: 'Talking Heads', year: '1980', genre: 'Rock', label: 'Sire', condition: 'NM', color: '#c44536', value: 130, added: '25 déc. 2025' },
-]
+interface CollectionItem {
+  id: number
+  title: string
+  artist: string
+  year: string
+  genre: string
+  label: string
+  condition: string
+  color: string
+  thumb: string
+  cover: string
+  added: string
+}
 
-const selectedVinyl = computed(() => collection[currentIndex.value])
+const { data: apiData } = await useAsyncData('collection-vinyls', () =>
+  searchReleases({ per_page: 12, sort: 'want', sort_order: 'desc' }),
+)
+
+const addedDates = ['15 jan. 2025', '20 fév. 2025', '10 mar. 2025', '5 avr. 2025', '12 mai 2025', '18 juin 2025', '22 juil. 2025', '30 août 2025', '15 sept. 2025', '2 oct. 2025', '8 nov. 2025', '25 déc. 2025']
+
+const extractedColors = ref<Record<number, string>>({})
+
+const collection = computed<CollectionItem[]>(() => {
+  if (!apiData.value?.results) return []
+  return apiData.value.results.map((r, i) => ({
+    id: r.id,
+    title: r.title.includes(' - ') ? r.title.split(' - ').slice(1).join(' - ') : r.title,
+    artist: r.title.includes(' - ') ? r.title.split(' - ')[0] : '',
+    year: r.year || '',
+    genre: r.genre?.[0] || '',
+    label: r.label?.[0] || '',
+    condition: 'NM',
+    color: extractedColors.value[r.id] || '#555555',
+    thumb: r.thumb,
+    cover: r.cover_image,
+    added: addedDates[i % addedDates.length],
+  }))
+})
+
+const selectedVinyl = computed(() => collection.value[currentIndex.value])
 
 const stats = computed(() => {
-  const genres = new Set(collection.map(v => v.genre)).size
-  const totalValue = collection.reduce((sum, v) => sum + v.value, 0)
-  return { total: collection.length, genres, totalValue }
+  const genres = new Set(collection.value.map(v => v.genre)).size
+  return { total: collection.value.length, genres }
 })
 
 function getInitials(name: string) {
@@ -42,7 +65,7 @@ function getCardStyle(index: number) {
   const absOffset = Math.abs(offset)
   const sign = Math.sign(offset)
 
-  if (absOffset > 5) {
+  if (absOffset > 5 || collection.value.length === 0) {
     return { opacity: '0', pointerEvents: 'none' as const, transform: `translateX(${sign * 900}px)` }
   }
 
@@ -70,14 +93,14 @@ function getCardStyle(index: number) {
 function navigate(dir: number) {
   if (isTransitioning.value) return
   const next = currentIndex.value + dir
-  if (next < 0 || next >= collection.length) return
+  if (next < 0 || next >= collection.value.length) return
   isTransitioning.value = true
   currentIndex.value = next
   setTimeout(() => (isTransitioning.value = false), 500)
 }
 
 function goTo(index: number) {
-  if (isTransitioning.value || index === currentIndex.value) return
+  if (isTransitioning.value || index === currentIndex.value || collection.value.length === 0) return
   isTransitioning.value = true
   currentIndex.value = index
   setTimeout(() => (isTransitioning.value = false), 500)
@@ -107,7 +130,18 @@ function onKeydown(e: KeyboardEvent) {
 
 onMounted(() => {
   window.addEventListener('keydown', onKeydown)
-  currentIndex.value = Math.min(2, Math.floor(collection.length / 2))
+  currentIndex.value = Math.min(2, Math.floor(collection.value.length / 2))
+
+  if (apiData.value?.results) {
+    for (const r of apiData.value.results) {
+      const src = r.thumb || r.cover_image
+      if (src) {
+        extractColor(src).then((hex) => {
+          extractedColors.value = { ...extractedColors.value, [r.id]: hex }
+        })
+      }
+    }
+  }
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
@@ -124,15 +158,7 @@ onUnmounted(() => {
         </NuxtLink>
 
         <div class="mx-8 hidden max-w-xl flex-1 md:block">
-          <div class="flex items-center rounded-lg border border-g-500 bg-g-700 px-4 py-2.5 transition-colors focus-within:border-g-400 focus-within:bg-g-600">
-            <UIcon name="i-lucide-search" class="mr-2.5 h-[18px] w-[18px] shrink-0 text-g-400" />
-            <input
-              v-model="searchQuery"
-              type="text"
-              placeholder="Artiste, album, label, pressage…"
-              class="w-full bg-transparent text-[15px] text-g-white outline-none placeholder:text-g-400"
-            >
-          </div>
+          <SearchBar />
         </div>
 
         <div class="flex items-center gap-7">
@@ -142,9 +168,6 @@ onUnmounted(() => {
           <UButton size="md" class="cursor-pointer rounded-lg bg-g-white px-5 text-[15px] font-medium text-g-black hover:bg-g-200" @click="openRegister">
             S'inscrire
           </UButton>
-          <NuxtLink to="/" class="flex cursor-pointer items-center text-g-400 transition-colors hover:text-g-white">
-            <UIcon name="i-lucide-shopping-bag" class="h-5 w-5" />
-          </NuxtLink>
         </div>
       </div>
     </nav>
@@ -157,8 +180,7 @@ onUnmounted(() => {
         <div>
           <h1 class="text-3xl font-bold tracking-tight text-g-black">Ma Collection</h1>
           <p class="mt-1 text-sm text-g-400">
-            {{ stats.total }} vinyles · {{ stats.genres }} genres · Valeur estimée
-            <span class="font-medium text-g-black">{{ stats.totalValue.toLocaleString('fr-FR') }}€</span>
+            {{ stats.total }} vinyles · {{ stats.genres }} genres
           </p>
         </div>
         <div class="flex items-center gap-2">
@@ -215,13 +237,18 @@ onUnmounted(() => {
               </div>
 
               <!-- Album cover -->
-              <div
-                class="cover relative flex items-center justify-center overflow-hidden rounded-lg shadow-2xl"
-                :style="{ backgroundColor: vinyl.color }"
-              >
-                <span class="select-none text-4xl font-bold text-white/30">
-                  {{ getInitials(vinyl.artist) }}
-                </span>
+              <div class="cover relative overflow-hidden rounded-lg shadow-2xl" :style="{ backgroundColor: vinyl.color }">
+                <img
+                  v-if="vinyl.cover || vinyl.thumb"
+                  :src="vinyl.cover || vinyl.thumb"
+                  :alt="vinyl.title"
+                  class="h-full w-full object-cover"
+                >
+                <div v-else class="flex h-full w-full items-center justify-center">
+                  <span class="select-none text-4xl font-bold text-white/30">
+                    {{ getInitials(vinyl.artist) }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -236,7 +263,7 @@ onUnmounted(() => {
           </button>
           <button
             class="absolute right-4 top-1/2 z-30 flex h-12 w-12 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-g-100 bg-white text-g-black shadow-sm transition-all hover:bg-g-50 disabled:pointer-events-none disabled:opacity-20"
-            :disabled="currentIndex === collection.length - 1"
+            :disabled="currentIndex === collection.length - 1 || collection.length === 0"
             @click="navigate(1)"
           >
             <UIcon name="i-lucide-chevron-right" class="h-6 w-6" />
@@ -261,13 +288,18 @@ onUnmounted(() => {
           <Transition name="vinyl-detail" mode="out-in">
             <div :key="selectedVinyl.id" class="flex flex-col items-center gap-8 sm:flex-row sm:items-start">
               <!-- Mini cover -->
-              <div
-                class="flex h-28 w-28 shrink-0 items-center justify-center rounded-lg"
-                :style="{ backgroundColor: selectedVinyl.color }"
-              >
-                <span class="select-none text-2xl font-bold text-white/30">
-                  {{ getInitials(selectedVinyl.artist) }}
-                </span>
+              <div class="h-28 w-28 shrink-0 overflow-hidden rounded-lg" :style="{ backgroundColor: selectedVinyl.color }">
+                <img
+                  v-if="selectedVinyl.cover || selectedVinyl.thumb"
+                  :src="selectedVinyl.thumb || selectedVinyl.cover"
+                  :alt="selectedVinyl.title"
+                  class="h-full w-full object-cover"
+                >
+                <div v-else class="flex h-full w-full items-center justify-center">
+                  <span class="select-none text-2xl font-bold text-white/30">
+                    {{ getInitials(selectedVinyl.artist) }}
+                  </span>
+                </div>
               </div>
 
               <!-- Info -->
@@ -283,9 +315,6 @@ onUnmounted(() => {
                 </div>
 
                 <div class="mt-4 flex flex-wrap items-center justify-center gap-4 sm:justify-start">
-                  <p class="text-sm text-g-400">
-                    Valeur estimée : <span class="font-semibold text-g-black">{{ selectedVinyl.value }}€</span>
-                  </p>
                   <p class="text-sm text-g-400">
                     Ajouté le {{ selectedVinyl.added }}
                   </p>
@@ -323,38 +352,33 @@ onUnmounted(() => {
           :to="`/vinyl/${vinyl.id}`"
           class="group cursor-pointer"
         >
-          <div
-            class="relative flex aspect-square items-center justify-center overflow-hidden rounded-lg transition-transform group-hover:scale-[1.03]"
-            :style="{ backgroundColor: vinyl.color }"
-          >
-            <span class="select-none text-3xl font-bold text-white/25">
-              {{ getInitials(vinyl.artist) }}
-            </span>
+          <div class="relative aspect-square overflow-hidden rounded-lg transition-transform group-hover:scale-[1.03]" :style="{ backgroundColor: vinyl.color }">
+            <img
+              v-if="vinyl.cover || vinyl.thumb"
+              :src="vinyl.cover || vinyl.thumb"
+              :alt="vinyl.title"
+              class="h-full w-full object-cover"
+              loading="lazy"
+              decoding="async"
+            >
+            <div v-else class="flex h-full w-full items-center justify-center">
+              <span class="select-none text-3xl font-bold text-white/25">
+                {{ getInitials(vinyl.artist) }}
+              </span>
+            </div>
             <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3 pt-8">
               <p class="truncate text-sm font-medium text-white">{{ vinyl.title }}</p>
               <p class="truncate text-xs text-white/60">{{ vinyl.artist }}</p>
             </div>
           </div>
           <div class="mt-2 flex items-center justify-between">
-            <span class="rounded-lg bg-g-100 px-1.5 py-0.5 text-[10px] font-medium text-g-black">{{ vinyl.condition }}</span>
-            <span class="text-xs font-medium text-g-black">{{ vinyl.value }}€</span>
+            <span class="text-[11px] text-g-400">{{ vinyl.label }} · {{ vinyl.year }}</span>
           </div>
         </NuxtLink>
       </div>
     </section>
 
-    <!-- ─── FOOTER ─── -->
-    <footer class="border-t border-g-100 px-6 py-8">
-      <div class="mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-4 sm:flex-row">
-        <img :src="logoNoir" alt="GROOV" class="h-5 opacity-30">
-        <div class="flex gap-6">
-          <NuxtLink to="#" class="cursor-pointer text-xs text-g-400 transition-colors hover:text-g-950">À propos</NuxtLink>
-          <NuxtLink to="#" class="cursor-pointer text-xs text-g-400 transition-colors hover:text-g-950">Contact</NuxtLink>
-          <NuxtLink to="#" class="cursor-pointer text-xs text-g-400 transition-colors hover:text-g-950">CGU</NuxtLink>
-        </div>
-        <p class="text-[11px] text-g-400">Discogs API · Supabase · Vercel · © 2026</p>
-      </div>
-    </footer>
+    <AppFooter />
   </div>
 </template>
 

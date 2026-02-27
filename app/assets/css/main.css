@@ -35,6 +35,10 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
+html {
+  background-color: var(--color-g-black);
+}
+
 body {
   background-color: var(--color-g-50);
   color: var(--color-g-950);
@@ -68,3 +72,27 @@ body {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
 }
+
+/* Page transitions */
+.page-enter-active {
+  transition: opacity 0.15s ease-out;
+}
+.page-leave-active {
+  transition: opacity 0.1s ease-in;
+}
+.page-enter-from,
+.page-leave-to {
+  opacity: 0;
+}
+
+/* GPU-accelerated cards */
+.group:hover img {
+  will-change: transform;
+}
+
+/* Optimised carousel */
+.carousel-card {
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+

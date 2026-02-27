@@ -1,57 +1,87 @@
 <script lang="ts" setup>
 import logoBlanc from '~/assets/img/groov_logo_blanc.svg'
-import logoNoir from '~/assets/img/groov_logo_noir.svg'
 
 const { openLogin, openRegister } = useAuthModal()
+const { searchReleases } = useDiscogs()
 const searchQuery = ref('')
 const activeFilter = ref('all')
+const isLoading = ref(false)
 
 const filters = [
   { id: 'all', label: 'Tout' },
-  { id: 'rock', label: 'Rock' },
-  { id: 'jazz', label: 'Jazz' },
-  { id: 'electronic', label: 'Électronique' },
-  { id: 'soul', label: 'Soul / Funk' },
-  { id: 'hiphop', label: 'Hip-Hop' },
-  { id: 'classical', label: 'Classique' },
+  { id: 'Rock', label: 'Rock' },
+  { id: 'Jazz', label: 'Jazz' },
+  { id: 'Electronic', label: 'Electronic' },
+  { id: 'Funk / Soul', label: 'Soul / Funk' },
+  { id: 'Hip Hop', label: 'Hip-Hop' },
+  { id: 'Classical', label: 'Classique' },
 ]
 
-const vinyls = [
-  { id: 'dark-side-of-the-moon', title: 'The Dark Side of the Moon', artist: 'Pink Floyd', year: '1973', label: 'Harvest', condition: 'NM', price: '€285', genre: 'rock', color: '#1a1a2e' },
-  { id: 'kind-of-blue', title: 'Kind of Blue', artist: 'Miles Davis', year: '1959', label: 'Columbia', condition: 'VG+', price: '€420', genre: 'jazz', color: '#0f3460' },
-  { id: 'discovery', title: 'Discovery', artist: 'Daft Punk', year: '2001', label: 'Virgin', condition: 'NM', price: '€95', genre: 'electronic', color: '#e94560' },
-  { id: 'ok-computer', title: 'OK Computer', artist: 'Radiohead', year: '1997', label: 'Parlophone', condition: 'NM', price: '€145', genre: 'rock', color: '#533483' },
-  { id: 'rumours', title: 'Rumours', artist: 'Fleetwood Mac', year: '1977', label: 'Warner Bros', condition: 'VG+', price: '€68', genre: 'rock', color: '#4a3728' },
-  { id: 'whats-going-on', title: 'What\'s Going On', artist: 'Marvin Gaye', year: '1971', label: 'Tamla', condition: 'VG', price: '€180', genre: 'soul', color: '#2d6a4f' },
-  { id: 'homework', title: 'Homework', artist: 'Daft Punk', year: '1997', label: 'Virgin', condition: 'NM', price: '€110', genre: 'electronic', color: '#d4a373' },
-  { id: 'head-hunters', title: 'Head Hunters', artist: 'Herbie Hancock', year: '1973', label: 'Columbia', condition: 'VG+', price: '€55', genre: 'jazz', color: '#bc6c25' },
-  { id: 'illmatic', title: 'Illmatic', artist: 'Nas', year: '1994', label: 'Columbia', condition: 'NM', price: '€75', genre: 'hiphop', color: '#6b705c' },
-  { id: 'loveless', title: 'Loveless', artist: 'My Bloody Valentine', year: '1991', label: 'Creation', condition: 'VG+', price: '€320', genre: 'rock', color: '#c9184a' },
-]
+const { data: searchData } = await useAsyncData(
+  'home-vinyls',
+  () => searchReleases({ per_page: 20, sort: 'want', sort_order: 'desc' }),
+)
+
+const vinyls = computed(() => {
+  if (!searchData.value?.results) return []
+  return searchData.value.results.map(r => ({
+    id: r.id,
+    title: r.title.includes(' - ') ? r.title.split(' - ').slice(1).join(' - ') : r.title,
+    artist: r.title.includes(' - ') ? r.title.split(' - ')[0] : '',
+    year: r.year || '',
+    label: r.label?.[0] || '',
+    genre: r.genre?.[0]?.toLowerCase() || '',
+    thumb: r.thumb,
+    cover: r.cover_image,
+    community: r.community,
+  }))
+})
 
 const filteredVinyls = computed(() => {
-  let results = vinyls
-  if (activeFilter.value !== 'all') {
-    results = results.filter(v => v.genre === activeFilter.value)
-  }
+  let results = vinyls.value
   if (searchQuery.value.trim()) {
     const q = searchQuery.value.toLowerCase()
     results = results.filter(v =>
       v.title.toLowerCase().includes(q)
-      || v.artist.toLowerCase().includes(q)
+      || (v.artist || '').toLowerCase().includes(q)
       || v.label.toLowerCase().includes(q),
     )
   }
   return results
 })
 
-const trendingArtists = [
-  { name: 'Pink Floyd', count: '2.4k' },
-  { name: 'Daft Punk', count: '1.8k' },
-  { name: 'Miles Davis', count: '3.1k' },
-  { name: 'Radiohead', count: '1.2k' },
-  { name: 'Marvin Gaye', count: '890' },
-]
+function formatWantCount(n: number): string {
+  if (n >= 1000) return `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k`
+  return String(n)
+}
+
+const trendingArtists = computed(() => {
+  const byArtist = new Map<string, number>()
+  for (const v of vinyls.value) {
+    const name = (v.artist || '').trim()
+    if (!name) continue
+    const want = v.community?.want ?? 0
+    byArtist.set(name, (byArtist.get(name) ?? 0) + want)
+  }
+  return [...byArtist.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 6)
+    .map(([name, count]) => ({ name, count: formatWantCount(count) }))
+})
+
+async function onFilterChange(genre: string) {
+  activeFilter.value = genre
+  isLoading.value = true
+  try {
+    const params: Record<string, string | number> = { per_page: 20, sort: 'want', sort_order: 'desc' }
+    if (genre !== 'all') params.genre = genre
+    const res = await searchReleases(params)
+    searchData.value = res
+  }
+  finally {
+    isLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -63,17 +93,8 @@ const trendingArtists = [
           <img :src="logoBlanc" alt="GROOV" class="h-9">
         </NuxtLink>
 
-        <!-- Search -->
         <div class="mx-8 hidden max-w-xl flex-1 md:block">
-          <div class="flex items-center rounded-lg border border-g-500 bg-g-700 px-4 py-2.5 transition-colors focus-within:border-g-400 focus-within:bg-g-600">
-            <UIcon name="i-lucide-search" class="mr-2.5 h-[18px] w-[18px] shrink-0 text-g-400" />
-            <input
-              v-model="searchQuery"
-              type="text"
-              placeholder="Artiste, album, label, pressage…"
-              class="w-full bg-transparent text-[15px] text-g-white outline-none placeholder:text-g-400"
-            >
-          </div>
+          <SearchBar />
         </div>
 
         <div class="flex items-center gap-7">
@@ -83,9 +104,6 @@ const trendingArtists = [
           <UButton size="md" class="cursor-pointer rounded-lg bg-g-white px-5 text-[15px] font-medium text-g-black hover:bg-g-200" @click="openRegister">
             S'inscrire
           </UButton>
-          <NuxtLink to="/" class="flex cursor-pointer items-center text-g-400 transition-colors hover:text-g-white">
-            <UIcon name="i-lucide-shopping-bag" class="h-5 w-5" />
-          </NuxtLink>
         </div>
       </div>
     </nav>
@@ -148,7 +166,7 @@ const trendingArtists = [
             <button
               v-for="a in trendingArtists"
               :key="a.name"
-              class="cursor-pointer rounded-lg border px-3.5 py-1.5 text-xs font-medium transition-all"
+              class="cursor-pointer rounded-lg border px-3.5 py-1.5 text-xs font-medium transition-colors"
               :class="searchQuery === a.name
                 ? 'border-g-950 bg-g-950 text-g-white'
                 : 'border-g-200 text-g-600 hover:border-g-950 hover:text-g-950'"
@@ -163,17 +181,17 @@ const trendingArtists = [
     </section>
 
     <!-- ─── FILTERS (fond blanc) ─── -->
-    <div class="sticky top-24 z-40 border-b border-g-100 bg-g-50/95 backdrop-blur-sm">
+    <div class="sticky top-[8.5rem] z-30 mt-3 border-b border-g-100 bg-g-50/95 backdrop-blur-sm">
       <div class="mx-auto max-w-[1400px] overflow-x-auto px-6">
         <div class="flex items-center gap-1.5 py-3">
           <button
             v-for="f in filters"
             :key="f.id"
-            class="shrink-0 cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition-all"
+            class="shrink-0 cursor-pointer rounded-lg px-4 py-2 text-sm font-medium transition-colors"
             :class="activeFilter === f.id
               ? 'bg-g-black text-g-white'
               : 'text-g-500 hover:bg-g-50 hover:text-g-black'"
-            @click="activeFilter = f.id"
+            @click="onFilterChange(f.id)"
           >
             {{ f.label }}
           </button>
@@ -186,42 +204,57 @@ const trendingArtists = [
 
     <!-- ─── GRID (fond blanc) ─── -->
     <main class="mx-auto max-w-[1400px] px-6 py-10">
+      <!-- Loading -->
+      <div v-if="isLoading" class="flex items-center justify-center py-24">
+        <UIcon name="i-lucide-loader-2" class="h-8 w-8 animate-spin text-g-400" />
+      </div>
+
       <div
-        v-if="filteredVinyls.length"
+        v-else-if="filteredVinyls.length"
         class="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5"
       >
-        <NuxtLink   
+        <NuxtLink
           v-for="vinyl in filteredVinyls"
           :key="vinyl.id"
           :to="`/vinyl/${vinyl.id}`"
           class="group cursor-pointer"
         >
-          <!-- Cover placeholder -->
-          <div class="relative aspect-square overflow-hidden rounded-lg" :style="{ backgroundColor: vinyl.color }">
-            <!-- Initiales de l'artiste comme placeholder visuel -->
-            <div class="flex h-full w-full items-center justify-center">
-              <span class="text-4xl font-black text-white/20 sm:text-5xl">
-                {{ vinyl.artist.split(' ').map(w => w[0]).join('') }}
+          <!-- Cover -->
+          <div class="relative aspect-square overflow-hidden rounded-lg bg-g-100">
+            <img
+              v-if="vinyl.cover || vinyl.thumb"
+              :src="vinyl.cover || vinyl.thumb"
+              :alt="vinyl.title"
+              class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              loading="lazy"
+              decoding="async"
+            >
+            <div v-else class="flex h-full w-full items-center justify-center bg-g-200">
+              <span class="text-4xl font-black text-g-400/30 sm:text-5xl">
+                {{ (vinyl.artist || '').split(' ').map((w: string) => w[0]).join('') }}
               </span>
             </div>
 
+            <!-- Add to collection -->
+            <button
+              class="pointer-events-auto absolute right-2 top-2 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg bg-g-black/50 text-g-white opacity-0 transition-all hover:bg-g-black/80 group-hover:opacity-100"
+              title="Ajouter à ma collection"
+              @click.prevent="openRegister"
+            >
+              <UIcon name="i-lucide-plus" class="h-3 w-3" />
+              <UIcon name="i-lucide-library-big" class="h-4 w-4" />
+            </button>
+
             <!-- Hover overlay -->
-            <div class="absolute inset-0 flex items-end bg-gradient-to-t from-g-black/80 via-g-black/20 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+            <div class="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-g-black/80 via-g-black/20 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100">
               <div class="flex w-full items-end justify-between p-3">
-                <span class="rounded-lg bg-g-white px-2.5 py-1 text-xs font-bold text-g-black">
-                  {{ vinyl.price }}
+                <span v-if="vinyl.community" class="rounded-lg bg-g-black/40 px-2 py-1 text-[11px] font-medium text-g-white">
+                  {{ vinyl.community.want }} wants
                 </span>
-                <span class="rounded-lg bg-g-white/20 px-2 py-1 text-[11px] font-medium text-g-white backdrop-blur-sm">
+                <span class="rounded-lg bg-g-black/40 px-2 py-1 text-[11px] font-medium text-g-white">
                   Voir →
                 </span>
               </div>
-            </div>
-
-            <!-- Condition -->
-            <div class="absolute right-2.5 top-2.5">
-              <span class="rounded-lg bg-g-black/50 px-2 py-0.5 font-[family-name:var(--font-mono)] text-[11px] font-medium text-g-white backdrop-blur-sm">
-                {{ vinyl.condition }}
-              </span>
             </div>
           </div>
 
@@ -230,7 +263,6 @@ const trendingArtists = [
             <p class="truncate text-sm font-semibold text-g-950">{{ vinyl.title }}</p>
             <p class="mt-0.5 truncate text-xs text-g-500">{{ vinyl.artist }}</p>
             <div class="mt-2 flex items-center justify-between">
-              <span class="text-sm font-bold text-g-950">{{ vinyl.price }}</span>
               <span class="text-[11px] text-g-400">{{ vinyl.label }} · {{ vinyl.year }}</span>
             </div>
           </div>
@@ -284,25 +316,6 @@ const trendingArtists = [
       </div>
     </section>
 
-    <!-- ─── FOOTER ─── -->
-    <footer class="border-t border-g-100 px-6 py-8">
-      <div class="mx-auto flex max-w-[1400px] flex-col items-center justify-between gap-4 sm:flex-row">
-        <img :src="logoNoir" alt="GROOV" class="h-5 opacity-30">
-        <div class="flex gap-6">
-          <NuxtLink to="#" class="cursor-pointer text-xs text-g-400 transition-colors hover:text-g-950">
-            À propos
-          </NuxtLink>
-          <NuxtLink to="#" class="cursor-pointer text-xs text-g-400 transition-colors hover:text-g-950">
-            Contact
-          </NuxtLink>
-          <NuxtLink to="#" class="cursor-pointer text-xs text-g-400 transition-colors hover:text-g-950">
-            CGU
-          </NuxtLink>
-        </div>
-        <p class="text-[11px] text-g-400">
-          Discogs API · Supabase · Vercel · © 2026
-        </p>
-      </div>
-    </footer>
+    <AppFooter />
   </div>
 </template>

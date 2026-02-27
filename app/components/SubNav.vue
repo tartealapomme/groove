@@ -8,14 +8,14 @@ const pages = [
 ]
 
 const genres = [
-  { to: '/explore?genre=rock', label: 'Rock' },
-  { to: '/explore?genre=jazz', label: 'Jazz' },
-  { to: '/explore?genre=electronic', label: 'Électronique' },
-  { to: '/explore?genre=soul', label: 'Soul / Funk' },
-  { to: '/explore?genre=hiphop', label: 'Hip-Hop' },
-  { to: '/explore?genre=classical', label: 'Classique' },
-  { to: '/explore?genre=pop', label: 'Pop' },
-  { to: '/explore?genre=reggae', label: 'Reggae' },
+  { to: '/explore?genre=Rock', label: 'Rock' },
+  { to: '/explore?genre=Jazz', label: 'Jazz' },
+  { to: '/explore?genre=Electronic', label: 'Électronique' },
+  { to: '/explore?genre=Funk+%2F+Soul', label: 'Soul / Funk' },
+  { to: '/explore?genre=Hip+Hop', label: 'Hip-Hop' },
+  { to: '/explore?genre=Classical', label: 'Classique' },
+  { to: '/explore?genre=Pop', label: 'Pop' },
+  { to: '/explore?genre=Reggae', label: 'Reggae' },
 ]
 
 function isActive(link: { to: string }) {
@@ -29,7 +29,7 @@ const isExploreActive = computed(() => route.path === '/explore')
 </script>
 
 <template>
-  <div class="border-b border-g-100 bg-g-50">
+  <div class="sticky top-24 z-40 border-t border-g-700 bg-g-black">
     <div class="mx-auto max-w-[1400px] px-6">
       <div class="flex items-center gap-1 py-2">
         <template v-for="page in pages" :key="page.to">
@@ -37,26 +37,26 @@ const isExploreActive = computed(() => route.path === '/explore')
           <div v-if="page.to === '/explore'" class="group relative">
             <NuxtLink
               :to="page.to"
-              class="flex shrink-0 cursor-pointer items-center gap-1 rounded-lg px-3 py-1.5 text-sm transition-all"
+              class="flex shrink-0 cursor-pointer items-center gap-1 rounded-lg px-3 py-1.5 text-sm transition-colors"
               :class="isExploreActive
-                ? 'font-medium text-g-950'
-                : 'text-g-400 hover:text-g-950'"
+                ? 'font-medium text-g-white'
+                : 'text-g-400 hover:text-g-white'"
             >
               {{ page.label }}
               <UIcon name="i-lucide-chevron-down" class="h-3 w-3 transition-transform group-hover:rotate-180" />
             </NuxtLink>
 
             <!-- Genre dropdown -->
-            <div class="pointer-events-none absolute left-0 top-full z-50 pt-1 opacity-0 transition-all group-hover:pointer-events-auto group-hover:opacity-100">
-              <div class="rounded-lg border border-g-100 bg-white py-1 shadow-lg">
+            <div class="pointer-events-none absolute left-0 top-full z-50 pt-1 opacity-0 transition-opacity group-hover:pointer-events-auto group-hover:opacity-100">
+              <div class="rounded-lg border border-g-700 bg-g-black py-1 shadow-lg">
                 <NuxtLink
                   v-for="genre in genres"
                   :key="genre.to"
                   :to="genre.to"
                   class="block cursor-pointer whitespace-nowrap px-4 py-2 text-sm transition-colors"
                   :class="route.fullPath === genre.to
-                    ? 'bg-g-50 font-medium text-g-950'
-                    : 'text-g-500 hover:bg-g-50 hover:text-g-950'"
+                    ? 'bg-g-700 font-medium text-g-white'
+                    : 'text-g-400 hover:bg-g-700 hover:text-g-white'"
                 >
                   {{ genre.label }}
                 </NuxtLink>
@@ -68,10 +68,10 @@ const isExploreActive = computed(() => route.path === '/explore')
           <NuxtLink
             v-else
             :to="page.to"
-            class="shrink-0 cursor-pointer rounded-lg px-3 py-1.5 text-sm transition-all"
+            class="shrink-0 cursor-pointer rounded-lg px-3 py-1.5 text-sm transition-colors"
             :class="isActive(page)
-              ? 'font-medium text-g-950'
-              : 'text-g-400 hover:text-g-950'"
+              ? 'font-medium text-g-white'
+              : 'text-g-400 hover:text-g-white'"
           >
             {{ page.label }}
           </NuxtLink>
