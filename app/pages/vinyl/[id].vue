@@ -86,7 +86,7 @@ const { data: recommendations } = await useAsyncData(
 </script>
 
 <template>
-  <div class="min-h-screen overflow-x-hidden pb-[env(safe-area-inset-bottom,0px)]">
+  <div class="min-h-screen pb-[env(safe-area-inset-bottom,0px)]">
     <AppHeader />
 
     <SubNav />
@@ -119,7 +119,7 @@ const { data: recommendations } = await useAsyncData(
 
       <!-- ─── MAIN DETAILS ─── -->
       <section class="px-4 py-6 sm:px-6 sm:py-10">
-        <div class="mx-auto grid max-w-[1400px] gap-6 lg:grid-cols-[400px_1fr] lg:gap-10">
+        <div class="mx-auto grid max-w-[1400px] items-start gap-6 lg:grid-cols-[400px_1fr] lg:gap-10">
           <!-- Cover (sticky) -->
           <div class="self-start lg:sticky lg:top-[8.5rem]">
             <div class="aspect-square overflow-hidden rounded-lg bg-g-100">
