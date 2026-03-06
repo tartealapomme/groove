@@ -29,7 +29,7 @@ const isExploreActive = computed(() => route.path === '/explore')
 </script>
 
 <template>
-  <div class="sticky top-24 z-40 border-t border-g-700 bg-g-black">
+  <div class="sticky top-16 z-40 border-t border-g-700 bg-g-black sm:top-24">
     <div class="mx-auto max-w-[1400px] px-6">
       <div class="flex items-center gap-1 py-2">
         <template v-for="page in pages" :key="page.to">

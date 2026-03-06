@@ -6,6 +6,7 @@ node_modules
 .output
 .vercel
 
+
 # Env
 .env
 .env.local
@@ -24,4 +25,5 @@ pnpm-debug.log*
 # Divers
 .DS_Store
 Thumbs.db
+.cursor
 

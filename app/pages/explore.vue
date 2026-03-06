@@ -1,7 +1,5 @@
 <script lang="ts" setup>
-import logoBlanc from '~/assets/img/groov_logo_blanc.svg'
-
-const { openLogin, openRegister } = useAuthModal()
+const { openRegister } = useAuthModal()
 const { searchReleases } = useDiscogs()
 const searchQuery = ref('')
 const route = useRoute()
@@ -173,49 +171,29 @@ watch(searchQuery, () => {
 </script>
 
 <template>
-  <div class="min-h-screen">
-    <!-- ─── NAV ─── -->
-    <nav class="sticky inset-x-0 top-0 z-50 bg-g-black">
-      <div class="mx-auto flex h-24 max-w-[1400px] items-center justify-between px-6">
-        <NuxtLink to="/" class="shrink-0 cursor-pointer">
-          <img :src="logoBlanc" alt="GROOV" class="h-9">
-        </NuxtLink>
-
-        <div class="mx-8 hidden max-w-xl flex-1 md:block">
-          <SearchBar />
-        </div>
-
-        <div class="flex items-center gap-7">
-          <button class="cursor-pointer text-[15px] text-g-400 transition-colors hover:text-g-white" @click="openLogin">
-            Connexion
-          </button>
-          <UButton size="md" class="cursor-pointer rounded-lg bg-g-white px-5 text-[15px] font-medium text-g-black hover:bg-g-200" @click="openRegister">
-            S'inscrire
-          </UButton>
-        </div>
-      </div>
-    </nav>
+  <div class="min-h-screen overflow-x-hidden pb-[env(safe-area-inset-bottom,0px)]">
+    <AppHeader />
 
     <SubNav />
 
     <!-- ─── PAGE HEADER ─── -->
-    <div class="border-b border-g-100 px-6 py-8">
+    <div class="border-b border-g-100 px-4 py-6 sm:px-6 sm:py-8">
       <div class="mx-auto max-w-[1400px]">
-        <div class="flex items-end justify-between">
-          <div>
-            <h1 class="text-3xl font-bold tracking-tight text-g-950">Explorer</h1>
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div class="min-w-0">
+            <h1 class="text-2xl font-bold tracking-tight text-g-950 sm:text-3xl">Explorer</h1>
             <p class="mt-1 text-sm text-g-400">{{ totalItems.toLocaleString('fr-FR') }} vinyle{{ totalItems > 1 ? 's' : '' }} trouvé{{ totalItems > 1 ? 's' : '' }}</p>
           </div>
 
           <!-- Mobile search -->
-          <div class="md:hidden">
-            <div class="flex items-center rounded-lg border border-g-200 bg-g-white px-3 py-2">
-              <UIcon name="i-lucide-search" class="mr-2 h-4 w-4 text-g-400" />
+          <div class="w-full sm:w-auto md:hidden">
+            <div class="flex min-h-[44px] items-center rounded-lg border border-g-200 bg-g-white px-4 py-2.5">
+              <UIcon name="i-lucide-search" class="mr-2 h-4 w-4 shrink-0 text-g-400" />
               <input
                 v-model="searchQuery"
                 type="text"
                 placeholder="Rechercher…"
-                class="w-full bg-transparent text-sm outline-none placeholder:text-g-400"
+                class="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-g-400"
               >
             </div>
           </div>
@@ -224,11 +202,11 @@ watch(searchQuery, () => {
     </div>
 
     <!-- ─── CONTENT ─── -->
-    <div class="mx-auto max-w-[1400px] px-6 py-8">
-      <div class="flex gap-8">
+    <div class="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8">
+      <div class="flex flex-col gap-4 lg:flex-row lg:gap-8">
         <!-- ─── SIDEBAR FILTERS ─── -->
         <aside class="hidden w-56 shrink-0 lg:block">
-          <div class="sticky top-36">
+          <div class="sticky top-[8.5rem]">
             <!-- Search -->
             <div class="mb-5">
               <SearchBar variant="light" />
@@ -239,7 +217,7 @@ watch(searchQuery, () => {
               <h2 class="text-sm font-semibold text-g-950">Filtres</h2>
               <button
                 v-if="activeFiltersCount > 0"
-                class="cursor-pointer text-xs text-g-400 underline underline-offset-4 transition-colors hover:text-g-950"
+                class="min-h-[44px] cursor-pointer px-2 py-2 text-xs text-g-400 underline underline-offset-4 transition-colors hover:text-g-950"
                 @click="resetFilters"
               >
                 Réinitialiser ({{ activeFiltersCount }})
@@ -247,16 +225,16 @@ watch(searchQuery, () => {
             </div>
 
             <!-- Genre -->
-            <details class="group border-b border-g-100 pb-3 mb-3" open>
-              <summary class="flex cursor-pointer items-center justify-between py-1.5 text-xs font-medium uppercase tracking-[0.15em] text-g-400 select-none">
+            <details class="group mb-3 border-b border-g-100 pb-3" open>
+              <summary class="flex min-h-[44px] cursor-pointer items-center justify-between py-2 text-xs font-medium uppercase tracking-[0.15em] text-g-400 select-none">
                 Genre
-                <UIcon name="i-lucide-chevron-down" class="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+                <UIcon name="i-lucide-chevron-down" class="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" />
               </summary>
               <div class="mt-2 space-y-0.5">
                 <button
                   v-for="g in genres"
                   :key="g.id"
-                  class="flex w-full cursor-pointer items-center rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors"
+                  class="flex min-h-[44px] w-full cursor-pointer items-center rounded-lg px-2.5 py-2 text-left text-sm transition-colors"
                   :class="activeGenre === g.id
                     ? 'bg-g-black font-medium text-g-white'
                     : 'text-g-500 hover:bg-g-100 hover:text-g-950'"
@@ -269,15 +247,15 @@ watch(searchQuery, () => {
 
             <!-- Decade -->
             <details class="group pb-3">
-              <summary class="flex cursor-pointer items-center justify-between py-1.5 text-xs font-medium uppercase tracking-[0.15em] text-g-400 select-none">
+              <summary class="flex min-h-[44px] cursor-pointer items-center justify-between py-2 text-xs font-medium uppercase tracking-[0.15em] text-g-400 select-none">
                 Décennie
-                <UIcon name="i-lucide-chevron-down" class="h-3.5 w-3.5 transition-transform group-open:rotate-180" />
+                <UIcon name="i-lucide-chevron-down" class="h-3.5 w-3.5 shrink-0 transition-transform group-open:rotate-180" />
               </summary>
               <div class="mt-2 space-y-0.5">
                 <button
                   v-for="d in decades"
                   :key="d.id"
-                  class="flex w-full cursor-pointer items-center rounded-lg px-2.5 py-1.5 text-left text-sm transition-colors"
+                  class="flex min-h-[44px] w-full cursor-pointer items-center rounded-lg px-2.5 py-2 text-left text-sm transition-colors"
                   :class="activeDecade === d.id
                     ? 'bg-g-black font-medium text-g-white'
                     : 'text-g-500 hover:bg-g-100 hover:text-g-950'"
@@ -291,37 +269,91 @@ watch(searchQuery, () => {
         </aside>
 
         <!-- ─── MOBILE FILTERS ─── -->
-        <div class="mb-4 flex flex-wrap gap-2 lg:hidden">
+        <div class="mb-4 lg:hidden">
           <button
-            class="flex cursor-pointer items-center gap-1.5 rounded-lg border border-g-200 px-3 py-1.5 text-xs font-medium text-g-500 transition-colors hover:border-g-950 hover:text-g-950"
+            class="flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-lg border border-g-200 px-3 py-2 text-xs font-medium text-g-500 transition-colors hover:border-g-950 hover:text-g-950"
             @click="showFilters = !showFilters"
           >
-            <UIcon name="i-lucide-sliders-horizontal" class="h-3.5 w-3.5" />
+            <UIcon name="i-lucide-sliders-horizontal" class="h-3.5 w-3.5 shrink-0" />
             Filtres
-            <span v-if="activeFiltersCount > 0" class="rounded-lg bg-g-black px-1.5 text-g-white">{{ activeFiltersCount }}</span>
+            <span v-if="activeFiltersCount > 0" class="rounded-lg bg-g-black px-1.5 py-0.5 text-g-white">{{ activeFiltersCount }}</span>
           </button>
+
+          <!-- Panel filtres mobile -->
+          <Transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0 -translate-y-2"
+            enter-to-class="opacity-100 translate-y-0"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100 translate-y-0"
+            leave-to-class="opacity-0 -translate-y-2"
+          >
+            <div v-if="showFilters" class="mt-3 space-y-4 rounded-lg border border-g-100 bg-g-50 p-4">
+              <div class="flex items-center justify-between">
+                <h3 class="text-xs font-semibold uppercase tracking-[0.15em] text-g-400">Genre</h3>
+                <button
+                  v-if="activeFiltersCount > 0"
+                  class="cursor-pointer text-xs text-g-500 underline underline-offset-4 hover:text-g-950"
+                  @click="resetFilters"
+                >
+                  Réinitialiser
+                </button>
+              </div>
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="g in genres"
+                  :key="g.id"
+                  class="min-h-[44px] cursor-pointer rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+                  :class="activeGenre === g.id
+                    ? 'bg-g-black text-g-white'
+                    : 'border border-g-200 text-g-500 hover:border-g-950 hover:text-g-950'"
+                  @click="onGenreChange(g.id)"
+                >
+                  {{ g.label }}
+                </button>
+              </div>
+              <div>
+                <h3 class="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-g-400">Décennie</h3>
+                <div class="flex flex-wrap gap-2">
+                  <button
+                    v-for="d in decades"
+                    :key="d.id"
+                    class="min-h-[44px] cursor-pointer rounded-lg px-3 py-2 text-sm font-medium transition-colors"
+                    :class="activeDecade === d.id
+                      ? 'bg-g-black text-g-white'
+                      : 'border border-g-200 text-g-500 hover:border-g-950 hover:text-g-950'"
+                    @click="onDecadeChange(d.id)"
+                  >
+                    {{ d.label }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Transition>
         </div>
 
         <!-- ─── MAIN ─── -->
-        <div class="flex-1">
+        <div class="min-w-0 flex-1">
           <!-- Sort bar -->
-          <div class="mb-6 flex items-center justify-between">
-            <div class="flex gap-1.5 overflow-x-auto">
-              <button
-                v-for="s in sortOptions"
-                :key="s.id"
-                class="shrink-0 cursor-pointer rounded-lg px-3 py-1.5 text-xs font-medium transition-colors"
-                :class="activeSortId === s.id
-                  ? 'bg-g-black text-g-white'
-                  : 'text-g-400 hover:bg-g-100 hover:text-g-950'"
-                @click="onSortChange(s)"
-              >
-                {{ s.label }}
-              </button>
+          <div class="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+            <div class="overflow-x-auto scrollbar-none">
+              <div class="flex min-h-[44px] items-center gap-2 py-1">
+                <button
+                  v-for="s in sortOptions"
+                  :key="s.id"
+                  class="shrink-0 cursor-pointer rounded-lg px-3 py-2 text-xs font-medium transition-colors"
+                  :class="activeSortId === s.id
+                    ? 'bg-g-black text-g-white'
+                    : 'text-g-400 hover:bg-g-100 hover:text-g-950'"
+                  @click="onSortChange(s)"
+                >
+                  {{ s.label }}
+                </button>
+              </div>
             </div>
 
             <!-- Active filters tags (desktop) -->
-            <div class="hidden items-center gap-2 lg:flex">
+            <div class="hidden shrink-0 items-center gap-2 lg:flex">
               <span
                 v-if="activeGenre !== 'all'"
                 class="flex cursor-pointer items-center gap-1 rounded-lg border border-g-200 px-2.5 py-1 text-xs text-g-500 transition-colors hover:border-g-950"
@@ -349,7 +381,7 @@ watch(searchQuery, () => {
           <!-- Grid -->
           <div
             v-else-if="results.length"
-            class="grid grid-cols-2 gap-5 sm:grid-cols-3 md:grid-cols-3 lg:grid-cols-4"
+            class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4"
           >
             <NuxtLink
               v-for="vinyl in results"
@@ -367,19 +399,18 @@ watch(searchQuery, () => {
                   decoding="async"
                 >
                 <div v-else class="flex h-full w-full items-center justify-center bg-g-200">
-                  <span class="text-4xl font-black text-g-400/30 sm:text-5xl">
-                    {{ vinyl.artist.split(' ').map((w: string) => w[0]).join('') }}
+                  <span class="text-3xl font-black text-g-400/30 sm:text-4xl lg:text-5xl">
+                    {{ (vinyl.artist || '').split(' ').map((w: string) => w[0]).join('') || '?' }}
                   </span>
                 </div>
 
-                <!-- Add to collection -->
+                <!-- Add to collection (visible on mobile, hover on desktop) -->
                 <button
-                  class="pointer-events-auto absolute right-2 top-2 z-10 flex h-8 w-8 cursor-pointer items-center justify-center rounded-lg bg-g-black/50 text-g-white opacity-0 transition-all hover:bg-g-black/80 group-hover:opacity-100"
+                  class="pointer-events-auto absolute right-2 top-2 z-10 flex min-h-[36px] min-w-[36px] cursor-pointer items-center justify-center rounded-lg bg-g-black/50 text-g-white transition-all hover:bg-g-black/80 sm:opacity-0 sm:group-hover:opacity-100"
                   title="Ajouter à ma collection"
                   @click.prevent="openRegister"
                 >
-                  <UIcon name="i-lucide-plus" class="h-3 w-3" />
-                  <UIcon name="i-lucide-library-big" class="h-4 w-4" />
+                  <UIcon name="i-lucide-plus" class="h-4 w-4" />
                 </button>
 
                 <div class="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-g-black/80 via-g-black/20 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100">
@@ -394,20 +425,20 @@ watch(searchQuery, () => {
                 </div>
               </div>
 
-              <div class="mt-3">
+              <div class="mt-2 min-w-0 sm:mt-3">
                 <p class="truncate text-sm font-semibold text-g-950">{{ vinyl.title }}</p>
                 <p class="mt-0.5 truncate text-xs text-g-500">{{ vinyl.artist }}</p>
-                <div class="mt-2 flex items-center justify-between">
-                  <span class="text-[11px] text-g-400">{{ vinyl.label }} · {{ vinyl.year }}</span>
+                <div class="mt-1.5 flex items-center justify-between sm:mt-2">
+                  <span class="truncate text-[11px] text-g-400">{{ vinyl.label }} · {{ vinyl.year }}</span>
                 </div>
               </div>
             </NuxtLink>
           </div>
 
           <!-- Pagination -->
-          <div v-if="!isLoading && results.length && totalPages > 1" class="mt-10 flex items-center justify-center gap-2">
+          <div v-if="!isLoading && results.length && totalPages > 1" class="mt-8 flex items-center justify-center gap-2 sm:mt-10">
             <button
-              class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-g-200 text-g-500 transition-colors hover:border-g-950 hover:text-g-950 disabled:pointer-events-none disabled:opacity-30"
+              class="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-lg border border-g-200 text-g-500 transition-colors hover:border-g-950 hover:text-g-950 disabled:pointer-events-none disabled:opacity-30"
               :disabled="currentPage <= 1"
               @click="onPageChange(currentPage - 1)"
             >
@@ -417,7 +448,7 @@ watch(searchQuery, () => {
               Page {{ currentPage }} / {{ totalPages }}
             </span>
             <button
-              class="flex h-9 w-9 cursor-pointer items-center justify-center rounded-lg border border-g-200 text-g-500 transition-colors hover:border-g-950 hover:text-g-950 disabled:pointer-events-none disabled:opacity-30"
+              class="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-lg border border-g-200 text-g-500 transition-colors hover:border-g-950 hover:text-g-950 disabled:pointer-events-none disabled:opacity-30"
               :disabled="currentPage >= totalPages"
               @click="onPageChange(currentPage + 1)"
             >
@@ -426,11 +457,11 @@ watch(searchQuery, () => {
           </div>
 
           <!-- Empty state -->
-          <div v-if="!isLoading && !results.length" class="py-24 text-center">
-            <UIcon name="i-lucide-disc-3" class="mx-auto mb-4 h-12 w-12 text-g-200" />
+          <div v-if="!isLoading && !results.length" class="py-16 text-center sm:py-24">
+            <UIcon name="i-lucide-disc-3" class="mx-auto mb-4 h-10 w-10 text-g-200 sm:h-12 sm:w-12" />
             <p class="text-sm text-g-500">Aucun vinyle ne correspond à vos critères.</p>
             <button
-              class="mt-3 cursor-pointer text-sm text-g-950 underline underline-offset-4 transition-colors hover:text-g-600"
+              class="mt-4 cursor-pointer py-3 text-sm text-g-950 underline underline-offset-4 transition-colors hover:text-g-600 sm:mt-3 sm:py-0"
               @click="resetFilters"
             >
               Réinitialiser les filtres
