@@ -28,6 +28,7 @@ export type Database = {
           condition: string | null
           notes: string | null
           created_at: string
+          estimated_price: number | null
         }
         Insert: {
           id?: string
@@ -43,6 +44,7 @@ export type Database = {
           condition?: string | null
           notes?: string | null
           created_at?: string
+          estimated_price?: number | null
         }
         Update: {
           id?: string
@@ -58,6 +60,7 @@ export type Database = {
           condition?: string | null
           notes?: string | null
           created_at?: string
+          estimated_price?: number | null
         }
         Relationships: []
       }

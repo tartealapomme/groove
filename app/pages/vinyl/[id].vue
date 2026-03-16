@@ -33,6 +33,7 @@ async function toggleCollection() {
         genre: vinyl.value.genres || [],
         thumb: coverThumb.value,
         cover: coverUrl.value,
+        estimated_price: estimatedUnitPrice.value,
       })
   if (error) {
     if (error.message?.toLowerCase().includes('non connecté') || error.message?.toLowerCase().includes('utilisateur non connecté')) {
@@ -146,6 +147,24 @@ const sortedPrices = computed(() => {
       price: priceSuggestions.value![c].value,
       currency: priceSuggestions.value![c].currency,
     }))
+})
+
+const estimatedUnitPrice = computed<number | null>(() => {
+  // 1) On privilégie toujours le "lowest_price" du marketplace Discogs (en EUR)
+  const lowest = vinyl.value?.marketplace?.lowest_price
+  if (lowest && lowest.currency === 'EUR') {
+    return lowest.value
+  }
+
+  // 2) Sinon, on se rabat sur les suggestions de prix par condition
+  if (!priceSuggestions.value) return null
+  const vgPlus = priceSuggestions.value['Very Good Plus (VG+)']
+  const nearMint = priceSuggestions.value['Near Mint (NM or M-)']
+  const mint = priceSuggestions.value['Mint (M)']
+  const candidate = vgPlus || nearMint || mint
+  if (candidate?.currency === 'EUR') return candidate.value
+
+  return null
 })
 
 const { data: recommendations } = await useAsyncData(
@@ -288,8 +307,8 @@ watch(vinyl, () => { if (vinyl.value) loadReviews() }, { immediate: true })
 
       <!-- ─── MAIN DETAILS ─── -->
       <section class="px-4 py-6 sm:px-6 sm:py-10">
-        <div class="mx-auto grid max-w-[1400px] items-start gap-6 lg:grid-cols-[400px_1fr] lg:gap-10">
-          <div class="self-start lg:sticky lg:top-[8.5rem]">
+        <div class="mx-auto grid max-w-[1400px] gap-6 lg:grid-cols-[400px_1fr] lg:gap-10">
+          <div class="sticky top-[7rem] sm:top-[8.5rem] h-fit">
             <div class="aspect-square overflow-hidden rounded-lg bg-g-100">
               <img
                 v-if="coverUrl"

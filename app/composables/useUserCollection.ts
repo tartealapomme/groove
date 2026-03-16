@@ -14,6 +14,7 @@ export interface CollectionVinylInput {
   cover?: string | null
   condition?: string | null
   notes?: string | null
+  estimated_price?: number | null
 }
 
 const collection = ref<CollectionRow[]>([])
@@ -75,6 +76,7 @@ export function useUserCollection() {
       cover: input.cover ?? null,
       condition: input.condition ?? null,
       notes: input.notes ?? null,
+      estimated_price: input.estimated_price ?? null,
     }
 
     const { error } = await supabase.from('user_collection').insert(row)

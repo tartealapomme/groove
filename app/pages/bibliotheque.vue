@@ -1,6 +1,7 @@
 <script lang="ts" setup>
 const { extractColor } = useDominantColor()
 const { collection, fetchCollection, removeFromCollection } = useUserCollection()
+const { getRelease } = useDiscogs()
 
 definePageMeta({ middleware: 'auth' })
 
@@ -61,8 +62,49 @@ const stats = computed(() => {
   return { total: displayCollection.value.length, genres }
 })
 
-// Estimation simple de la valeur de collection (approx. 18€/vinyle)
-const estimatedTotal = computed(() => displayCollection.value.length * 18)
+// Prix unitaire estimé par vinyle (reprend le "À partir de" de la fiche vinyle)
+const priceCache = ref<Record<number, number>>({})
+const isLoadingPrices = ref(false)
+
+async function loadCollectionPrices() {
+  const ids = collection.value.map(r => r.discogs_id)
+  const unique = [...new Set(ids)].filter(id => !(id in priceCache.value))
+  if (!unique.length) return
+
+  isLoadingPrices.value = true
+  const next = { ...priceCache.value }
+
+  await Promise.all(unique.map(async (id) => {
+    try {
+      const release = await getRelease(id)
+      const lowest = release?.marketplace?.lowest_price
+      if (lowest && lowest.currency === 'EUR') {
+        next[id] = lowest.value
+      }
+    }
+    catch {
+      // on ignore les erreurs de prix, ce vinyle ne contribuera pas à la somme
+    }
+  }))
+
+  priceCache.value = next
+  isLoadingPrices.value = false
+}
+
+// Valeur estimée : somme des "À partir de" de chaque vinyle (fallback sur estimation simple si on n'a rien)
+const estimatedTotal = computed(() => {
+  if (!collection.value.length) return 0
+
+  let sum = 0
+  for (const row of collection.value) {
+    const p = priceCache.value[row.discogs_id]
+    if (typeof p === 'number' && p > 0) sum += p
+  }
+
+  if (sum > 0) return sum
+  // Fallback : ancienne estimation simple (~18€/vinyle) si aucun prix n'est encore chargé
+  return collection.value.length * 18
+})
 const estimatedLabel = computed(() => {
   if (!displayCollection.value.length) return ''
   return ` · ~${Math.round(estimatedTotal.value).toLocaleString('fr-FR')} € estimés`
@@ -185,6 +227,7 @@ onMounted(async () => {
   isCollectionLoading.value = true
   await fetchCollection()
   isCollectionLoading.value = false
+  await loadCollectionPrices()
   extractColorsFromResults()
   currentIndex.value = Math.min(2, Math.floor(displayCollection.value.length / 2))
   window.addEventListener('keydown', onKeydown)
@@ -193,6 +236,10 @@ onMounted(async () => {
   }
   resizeHandler()
   window.addEventListener('resize', resizeHandler)
+})
+
+watch(collection, () => {
+  loadCollectionPrices()
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)

@@ -8,6 +8,7 @@ const props = defineProps<{
   label?: string
   genre?: string | string[]
   year?: string
+  estimatedPrice?: number | null
 }>()
 
 const user = useSupabaseUser()
@@ -43,6 +44,7 @@ async function toggleCollection() {
         genre: Array.isArray(props.genre) ? props.genre : (props.genre ? [props.genre] : []),
         thumb: props.thumb ?? null,
         cover: props.cover ?? null,
+        estimated_price: props.estimatedPrice ?? null,
       })
   if (error) {
     if (error.message?.toLowerCase().includes('non connecté') || error.message?.toLowerCase().includes('utilisateur non connecté')) {
