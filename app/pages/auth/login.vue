@@ -32,7 +32,8 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
 
   if (data.session) {
     toast.add({ title: 'Connecté', description: 'Connexion réussie.', color: 'success' })
-    await navigateTo('/')
+    const redirect = useRoute().query.redirect as string
+    await navigateTo(redirect || '/')
   }
 }
 </script>

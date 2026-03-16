@@ -1,12 +1,90 @@
 <script lang="ts" setup>
 const { openRegister } = useAuthModal()
 const { getRelease, searchReleases, getPriceSuggestions } = useDiscogs()
+const user = useSupabaseUser()
+const { addToCollection, removeFromCollection, isInCollection, fetchCollection } = useUserCollection()
+const { addFavorite, removeFavorite, isFavorite, fetchFavorites } = useUserFavorites()
+
+const justToggledCollection = ref(false)
+const justToggledFavorite = ref(false)
+
+watch(user, async (u) => {
+  if (u) {
+    await fetchCollection()
+    await fetchFavorites()
+  }
+}, { immediate: true })
+
+async function toggleCollection() {
+  console.log('[groov] toggleCollection - user', user.value)
+  if (!user.value) {
+    openRegister()
+    return
+  }
+  if (vinyl.value) {
+    console.log('[groov] toggleCollection - vinyl', {
+      id: vinyl.value.id,
+      title: vinyl.value.title,
+      inCollection: isInCollection(vinyl.value.id),
+    })
+    if (isInCollection(vinyl.value.id)) {
+      const { error } = await removeFromCollection(vinyl.value.id)
+      if (error) console.error('[groov] removeFromCollection error', error)
+    }
+    else {
+      const { error } = await addToCollection({
+        discogs_id: vinyl.value.id,
+        title: vinyl.value.title,
+        artist: artistName.value,
+        year: String(vinyl.value.year || ''),
+        label: labelInfo.value?.name ?? null,
+        genre: vinyl.value.genres || [],
+        thumb: coverThumb.value,
+        cover: coverUrl.value,
+      })
+      if (error) console.error('[groov] addToCollection error', error)
+    }
+    justToggledCollection.value = false
+    requestAnimationFrame(() => {
+      justToggledCollection.value = true
+      setTimeout(() => { justToggledCollection.value = false }, 250)
+    })
+  }
+}
+
+async function toggleFavorite() {
+  if (!user.value) {
+    openRegister()
+    return
+  }
+  if (vinyl.value) {
+    if (isFavorite(vinyl.value.id)) {
+      await removeFavorite(vinyl.value.id)
+    }
+    else {
+      await addFavorite({
+        discogs_id: vinyl.value.id,
+        title: vinyl.value.title,
+        artist: artistName.value,
+        thumb: coverThumb.value,
+        cover: coverUrl.value,
+      })
+    }
+    justToggledFavorite.value = false
+    requestAnimationFrame(() => {
+      justToggledFavorite.value = true
+      setTimeout(() => { justToggledFavorite.value = false }, 250)
+    })
+  }
+}
+
 const route = useRoute()
 const releaseId = route.params.id as string
 
 const { data: vinyl, error } = await useAsyncData(
   `release-${releaseId}`,
   () => getRelease(releaseId),
+  { lazy: true },
 )
 
 const artistName = computed(() => vinyl.value?.artists?.map(a => a.name).join(', ') || '')
@@ -147,18 +225,38 @@ const { data: recommendations } = await useAsyncData(
 
             <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
               <button
-                class="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-lg bg-g-black px-5 py-2.5 text-sm font-medium text-g-white transition-colors hover:bg-g-700"
-                @click="openRegister"
+                class="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-all"
+                :class="[
+                  vinyl && isInCollection(vinyl.id)
+                    ? 'border border-g-200 bg-g-50 text-g-700 hover:border-red-400 hover:bg-red-50 hover:text-red-500'
+                    : 'bg-g-black text-g-white hover:bg-g-700',
+                  justToggledCollection ? 'scale-[1.02]' : 'scale-100',
+                ]"
+                @click="toggleCollection"
               >
-                <UIcon name="i-lucide-plus" class="h-4 w-4 shrink-0" />
-                Ajouter à ma collection
+                <UIcon
+                  :name="vinyl && isInCollection(vinyl.id) ? 'i-lucide-check' : 'i-lucide-plus'"
+                  class="h-4 w-4 shrink-0 transition-transform"
+                  :class="justToggledCollection ? 'scale-125' : 'scale-100'"
+                />
+                {{ vinyl && isInCollection(vinyl.id) ? 'Dans ma collection' : 'Ajouter à ma collection' }}
               </button>
               <button
-                class="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-lg border border-g-200 px-4 py-2.5 text-sm text-g-500 transition-colors hover:border-g-400 hover:text-g-950"
-                @click="openRegister"
+                class="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm transition-all"
+                :class="[
+                  vinyl && isFavorite(vinyl.id)
+                    ? 'border-red-200 bg-red-50 text-red-600 hover:border-red-400 hover:bg-red-100'
+                    : 'border-g-200 text-g-500 hover:border-g-400 hover:text-g-950',
+                  justToggledFavorite ? 'scale-[1.02]' : 'scale-100',
+                ]"
+                @click="toggleFavorite"
               >
-                <UIcon name="i-lucide-heart" class="h-4 w-4 shrink-0" />
-                Wishlist
+                <UIcon
+                  name="i-lucide-heart"
+                  class="h-4 w-4 shrink-0 transition-transform"
+                  :class="[{ 'fill-current': vinyl && isFavorite(vinyl.id) }, justToggledFavorite ? 'scale-125' : 'scale-100']"
+                />
+                {{ vinyl && isFavorite(vinyl.id) ? 'Dans la wishlist' : 'Wishlist' }}
               </button>
             </div>
 

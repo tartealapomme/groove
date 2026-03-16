@@ -2,12 +2,14 @@ const showOnboarding = ref(false)
 const onboardingStep = ref<'genres' | 'artists' | 'confirm'>('genres')
 const selectedGenres = ref<string[]>([])
 const selectedArtists = ref<string[]>([])
+let onFinishCallback: (() => void) | null = null
 
 export function useOnboarding() {
-  function start() {
+  function start(options?: { onFinish?: () => void; initialGenres?: string[]; initialArtists?: string[] }) {
+    onFinishCallback = options?.onFinish ?? null
     onboardingStep.value = 'genres'
-    selectedGenres.value = []
-    selectedArtists.value = []
+    selectedGenres.value = options?.initialGenres ?? []
+    selectedArtists.value = options?.initialArtists ?? []
     showOnboarding.value = true
   }
 
@@ -49,6 +51,8 @@ export function useOnboarding() {
       artists: selectedArtists.value,
     }))
     showOnboarding.value = false
+    onFinishCallback?.()
+    onFinishCallback = null
   }
 
   return {

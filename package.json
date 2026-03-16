@@ -12,6 +12,7 @@
     "supabase:stop": "npx supabase stop --workdir ./supabase"
   },
   "dependencies": {
+    "html2canvas": "^1.4.1",
     "@nuxt/eslint": "1.13.0",
     "@nuxt/ui": "4.4.0",
     "@nuxtjs/supabase": "^2.0.3",
@@ -31,5 +32,8 @@
   "devDependencies": {
     "@types/three": "^0.183.1",
     "supabase": "^2.75.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@parcel/watcher", "esbuild", "unrs-resolver", "vue-demi"]
   }
 }

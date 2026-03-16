@@ -1,11 +1,22 @@
 <script lang="ts" setup>
 const route = useRoute()
 
-const pages = [
-  { to: '/', label: 'Accueil' },
-  { to: '/explore', label: 'Explorer' },
-  { to: '/bibliotheque', label: 'Ma Collection' },
-]
+const user = useSupabaseUser()
+
+const pages = computed(() => {
+  const base = [
+    { to: '/', label: 'Accueil' },
+    { to: '/explore', label: 'Explorer' },
+  ]
+  if (user.value) {
+    base.push({ to: '/wishlist', label: 'Wishlist' })
+    base.push({ to: '/bibliotheque', label: 'Ma Collection' })
+  }
+  else {
+    base.push({ to: '/bibliotheque', label: 'Ma Collection' })
+  }
+  return base
+})
 
 const genres = [
   { to: '/explore?genre=Rock', label: 'Rock' },
@@ -22,6 +33,7 @@ function isActive(link: { to: string }) {
   if (link.to === '/') return route.path === '/'
   if (link.to === '/explore') return route.path === '/explore'
   if (link.to === '/bibliotheque') return route.path === '/bibliotheque'
+  if (link.to === '/wishlist') return route.path === '/wishlist'
   return route.fullPath === link.to
 }
 

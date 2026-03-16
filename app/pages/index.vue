@@ -1,6 +1,19 @@
 <script lang="ts" setup>
+import type { Database } from '~/database.types'
+
 const { openRegister } = useAuthModal()
 const { searchReleases } = useDiscogs()
+
+// Charger collection et favoris pour les utilisateurs connectés
+const user = useSupabaseUser()
+const { fetchCollection } = useUserCollection()
+const { fetchFavorites } = useUserFavorites()
+watch(user, async (u) => {
+  if (u) {
+    await fetchCollection()
+    await fetchFavorites()
+  }
+}, { immediate: true })
 const searchQuery = ref('')
 const activeFilter = ref('all')
 const isLoading = ref(false)
@@ -15,9 +28,28 @@ const filters = [
   { id: 'Classical', label: 'Classique' },
 ]
 
-const { data: searchData } = await useAsyncData(
+const supabase = useSupabaseClient<Database>()
+
+const { data: searchData, pending: isInitialLoading } = await useAsyncData(
   'home-vinyls',
   () => searchReleases({ per_page: 20, sort: 'want', sort_order: 'desc' }),
+  { lazy: true },
+)
+
+const { data: editorialTrends } = await useAsyncData(
+  'editorial-trends',
+  async () => {
+    const { data, error } = await supabase
+      .from('homepage_trends')
+      .select('*')
+      .order('position', { ascending: true })
+    if (error) {
+      console.error('[groov] homepage_trends error', error)
+      return []
+    }
+    return data || []
+  },
+  { lazy: true },
 )
 
 const vinyls = computed(() => {
@@ -54,6 +86,13 @@ function formatWantCount(n: number): string {
 }
 
 const trendingArtists = computed(() => {
+  if (editorialTrends.value?.length) {
+    return editorialTrends.value.map(t => ({
+      name: t.title,
+      artist: t.artist,
+    }))
+  }
+
   const byArtist = new Map<string, number>()
   for (const v of vinyls.value) {
     const name = (v.artist || '').trim()
@@ -192,7 +231,7 @@ async function onFilterChange(genre: string) {
     <!-- ─── GRID (fond blanc) ─── -->
     <main class="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 sm:py-10">
       <!-- Loading -->
-      <div v-if="isLoading" class="flex items-center justify-center py-24">
+      <div v-if="isLoading || isInitialLoading" class="flex items-center justify-center py-24">
         <UIcon name="i-lucide-loader-2" class="h-8 w-8 animate-spin text-g-400" />
       </div>
 
@@ -222,14 +261,16 @@ async function onFilterChange(genre: string) {
               </span>
             </div>
 
-            <!-- Add to collection (visible on mobile, hover on desktop) -->
-            <button
-              class="pointer-events-auto absolute right-2 top-2 z-10 flex min-h-[36px] min-w-[36px] cursor-pointer items-center justify-center rounded-lg bg-g-black/50 text-g-white transition-all hover:bg-g-black/80 sm:opacity-0 sm:group-hover:opacity-100"
-              title="Ajouter à ma collection"
-              @click.prevent="openRegister"
-            >
-              <UIcon name="i-lucide-plus" class="h-4 w-4" />
-            </button>
+            <VinylCardActions
+              :discogs-id="vinyl.id"
+              :title="vinyl.title"
+              :artist="vinyl.artist"
+              :thumb="vinyl.thumb"
+              :cover="vinyl.cover"
+              :label="vinyl.label"
+              :genre="vinyl.genre"
+              :year="vinyl.year"
+            />
 
             <!-- Hover overlay -->
             <div class="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-g-black/80 via-g-black/20 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100">

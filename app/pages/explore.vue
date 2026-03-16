@@ -1,6 +1,16 @@
 <script lang="ts" setup>
 const { openRegister } = useAuthModal()
 const { searchReleases } = useDiscogs()
+
+const user = useSupabaseUser()
+const { fetchCollection } = useUserCollection()
+const { fetchFavorites } = useUserFavorites()
+watch(user, async (u) => {
+  if (u) {
+    await fetchCollection()
+    await fetchFavorites()
+  }
+}, { immediate: true })
 const searchQuery = ref('')
 const route = useRoute()
 const isLoading = ref(false)
@@ -106,17 +116,19 @@ async function fetchResults() {
   }
 }
 
-const { data: initialData } = await useAsyncData('explore-vinyls', () => {
+const { data: initialData, pending: isInitialLoading } = await useAsyncData('explore-vinyls', () => {
   const params: Record<string, string | number | undefined> = { per_page: 24, sort: 'year', sort_order: 'desc' }
   if (route.query.genre) params.genre = route.query.genre as string
   return searchReleases(params)
-})
+}, { lazy: true })
 
-if (initialData.value) {
-  results.value = initialData.value.results.map(parseResult)
-  totalPages.value = initialData.value.pagination.pages
-  totalItems.value = initialData.value.pagination.items
-}
+watch(initialData, (data) => {
+  if (data) {
+    results.value = data.results.map(parseResult)
+    totalPages.value = data.pagination.pages
+    totalItems.value = data.pagination.items
+  }
+}, { immediate: true })
 
 function onGenreChange(genre: string) {
   activeGenre.value = genre
@@ -334,10 +346,15 @@ watch(searchQuery, () => {
 
         <!-- ─── MAIN ─── -->
         <div class="min-w-0 flex-1">
-          <!-- Sort bar -->
-          <div class="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
-            <div class="overflow-x-auto scrollbar-none">
-              <div class="flex min-h-[44px] items-center gap-2 py-1">
+          <div v-if="isLoading || isInitialLoading" class="flex items-center justify-center py-24">
+            <UIcon name="i-lucide-loader-2" class="h-8 w-8 animate-spin text-g-400" />
+          </div>
+
+          <div v-else>
+            <!-- Sort bar -->
+            <div class="mb-4 flex flex-col gap-3 sm:mb-6 sm:flex-row sm:items-center sm:justify-between">
+              <div class="overflow-x-auto scrollbar-none">
+                <div class="flex min-h-[44px] items-center gap-2 py-1">
                 <button
                   v-for="s in sortOptions"
                   :key="s.id"
@@ -349,10 +366,10 @@ watch(searchQuery, () => {
                 >
                   {{ s.label }}
                 </button>
+                </div>
               </div>
-            </div>
 
-            <!-- Active filters tags (desktop) -->
+              <!-- Active filters tags (desktop) -->
             <div class="hidden shrink-0 items-center gap-2 lg:flex">
               <span
                 v-if="activeGenre !== 'all'"
@@ -373,17 +390,12 @@ watch(searchQuery, () => {
             </div>
           </div>
 
-          <!-- Loading -->
-          <div v-if="isLoading" class="flex items-center justify-center py-24">
-            <UIcon name="i-lucide-loader-2" class="h-8 w-8 animate-spin text-g-400" />
-          </div>
-
-          <!-- Grid -->
-          <div
-            v-else-if="results.length"
-            class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4"
-          >
-            <NuxtLink
+            <!-- Grid -->
+            <div
+              v-if="results.length"
+              class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 md:grid-cols-3 lg:grid-cols-4"
+            >
+              <NuxtLink
               v-for="vinyl in results"
               :key="vinyl.id"
               :to="`/vinyl/${vinyl.id}`"
@@ -404,14 +416,16 @@ watch(searchQuery, () => {
                   </span>
                 </div>
 
-                <!-- Add to collection (visible on mobile, hover on desktop) -->
-                <button
-                  class="pointer-events-auto absolute right-2 top-2 z-10 flex min-h-[36px] min-w-[36px] cursor-pointer items-center justify-center rounded-lg bg-g-black/50 text-g-white transition-all hover:bg-g-black/80 sm:opacity-0 sm:group-hover:opacity-100"
-                  title="Ajouter à ma collection"
-                  @click.prevent="openRegister"
-                >
-                  <UIcon name="i-lucide-plus" class="h-4 w-4" />
-                </button>
+                <VinylCardActions
+                  :discogs-id="vinyl.id"
+                  :title="vinyl.title"
+                  :artist="vinyl.artist"
+                  :thumb="vinyl.thumb"
+                  :cover="vinyl.cover"
+                  :label="vinyl.label"
+                  :genre="vinyl.genre"
+                  :year="vinyl.year"
+                />
 
                 <div class="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-g-black/80 via-g-black/20 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                   <div class="flex w-full items-end justify-between p-3">
@@ -432,12 +446,12 @@ watch(searchQuery, () => {
                   <span class="truncate text-[11px] text-g-400">{{ vinyl.label }} · {{ vinyl.year }}</span>
                 </div>
               </div>
-            </NuxtLink>
-          </div>
+              </NuxtLink>
+            </div>
 
-          <!-- Pagination -->
-          <div v-if="!isLoading && results.length && totalPages > 1" class="mt-8 flex items-center justify-center gap-2 sm:mt-10">
-            <button
+            <!-- Pagination -->
+            <div v-if="results.length && totalPages > 1" class="mt-8 flex items-center justify-center gap-2 sm:mt-10">
+              <button
               class="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-lg border border-g-200 text-g-500 transition-colors hover:border-g-950 hover:text-g-950 disabled:pointer-events-none disabled:opacity-30"
               :disabled="currentPage <= 1"
               @click="onPageChange(currentPage - 1)"
@@ -451,21 +465,22 @@ watch(searchQuery, () => {
               class="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-lg border border-g-200 text-g-500 transition-colors hover:border-g-950 hover:text-g-950 disabled:pointer-events-none disabled:opacity-30"
               :disabled="currentPage >= totalPages"
               @click="onPageChange(currentPage + 1)"
-            >
-              <UIcon name="i-lucide-chevron-right" class="h-4 w-4" />
-            </button>
-          </div>
+              >
+                <UIcon name="i-lucide-chevron-right" class="h-4 w-4" />
+              </button>
+            </div>
 
-          <!-- Empty state -->
-          <div v-if="!isLoading && !results.length" class="py-16 text-center sm:py-24">
-            <UIcon name="i-lucide-disc-3" class="mx-auto mb-4 h-10 w-10 text-g-200 sm:h-12 sm:w-12" />
-            <p class="text-sm text-g-500">Aucun vinyle ne correspond à vos critères.</p>
-            <button
-              class="mt-4 cursor-pointer py-3 text-sm text-g-950 underline underline-offset-4 transition-colors hover:text-g-600 sm:mt-3 sm:py-0"
-              @click="resetFilters"
-            >
-              Réinitialiser les filtres
-            </button>
+            <!-- Empty state -->
+            <div v-else class="py-16 text-center sm:py-24">
+              <UIcon name="i-lucide-disc-3" class="mx-auto mb-4 h-10 w-10 text-g-200 sm:h-12 sm:w-12" />
+              <p class="text-sm text-g-500">Aucun vinyle ne correspond à vos critères.</p>
+              <button
+                class="mt-4 cursor-pointer py-3 text-sm text-g-950 underline underline-offset-4 transition-colors hover:text-g-600 sm:mt-3 sm:py-0"
+                @click="resetFilters"
+              >
+                Réinitialiser les filtres
+              </button>
+            </div>
           </div>
         </div>
       </div>

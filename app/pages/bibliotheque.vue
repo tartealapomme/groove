@@ -1,7 +1,10 @@
 <script lang="ts" setup>
-const user = useSupabaseUser()
-const { searchReleases } = useDiscogs()
 const { extractColor } = useDominantColor()
+const { collection, fetchCollection, removeFromCollection } = useUserCollection()
+
+definePageMeta({
+  middleware: 'auth',
+})
 
 type ViewMode = 'showcase' | 'grid'
 const viewMode = ref<ViewMode>('showcase')
@@ -26,45 +29,39 @@ interface CollectionItem {
   added: string
 }
 
-const { data: apiData } = await useAsyncData('collection-vinyls', () =>
-  searchReleases({ per_page: 12, sort: 'want', sort_order: 'desc' }),
-)
-
-const showRewind = ref(false)
-const rawResults = computed(() => apiData.value?.results ?? [])
-
-const addedDates = ['15 jan. 2025', '20 fév. 2025', '10 mar. 2025', '5 avr. 2025', '12 mai 2025', '18 juin 2025', '22 juil. 2025', '30 août 2025', '15 sept. 2025', '2 oct. 2025', '8 nov. 2025', '25 déc. 2025']
-
+const isCollectionLoading = ref(true)
 const extractedColors = ref<Record<number, string>>({})
 
-const collection = computed<CollectionItem[]>(() => {
-  if (!apiData.value?.results) return []
-  return apiData.value.results.map((r, i) => ({
-    id: r.id,
-    title: r.title.includes(' - ') ? r.title.split(' - ').slice(1).join(' - ') : r.title,
-    artist: r.title.includes(' - ') ? r.title.split(' - ')[0] : '',
+const collectionItems = computed<CollectionItem[]>(() => {
+  const rows = collection.value
+  if (!rows.length) return []
+  return rows.map((r) => ({
+    id: r.discogs_id,
+    title: r.title || '',
+    artist: r.artist || '',
     year: r.year || '',
     genre: r.genre?.[0] || '',
-    label: r.label?.[0] || '',
-    condition: 'NM',
-    color: extractedColors.value[r.id] || '#555555',
-    thumb: r.thumb,
-    cover: r.cover_image,
-    added: addedDates[i % addedDates.length],
+    label: r.label || '',
+    condition: r.condition || 'NM',
+    color: extractedColors.value[r.discogs_id] || '#555555',
+    thumb: r.thumb || '',
+    cover: r.cover || '',
+    added: r.created_at ? new Date(r.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' }) : '',
   }))
 })
 
-const selectedVinyl = computed(() => collection.value[currentIndex.value])
+const displayCollection = collectionItems
+const selectedVinyl = computed(() => displayCollection.value[currentIndex.value])
 
 const stats = computed(() => {
-  const genres = new Set(collection.value.map(v => v.genre)).size
-  return { total: collection.value.length, genres }
+  const genres = new Set(displayCollection.value.map(v => v.genre).filter(Boolean)).size
+  return { total: displayCollection.value.length, genres }
 })
 
 // Estimation simple de la valeur de collection (approx. 18€/vinyle)
-const estimatedTotal = computed(() => collection.value.length * 18)
+const estimatedTotal = computed(() => displayCollection.value.length * 18)
 const estimatedLabel = computed(() => {
-  if (!collection.value.length) return ''
+  if (!displayCollection.value.length) return ''
   return ` · ~${Math.round(estimatedTotal.value).toLocaleString('fr-FR')} € estimés`
 })
 
@@ -80,7 +77,7 @@ function getCardStyle(index: number) {
   const stepTx = isMobile.value ? 55 : 75
   const hideTx = isMobile.value ? 600 : 900
 
-  if (absOffset > 5 || collection.value.length === 0) {
+  if (absOffset > 5 || displayCollection.value.length === 0) {
     return { opacity: '0', pointerEvents: 'none' as const, transform: `translateX(${sign * hideTx}px)` }
   }
 
@@ -108,14 +105,14 @@ function getCardStyle(index: number) {
 function navigate(dir: number) {
   if (isTransitioning.value) return
   const next = currentIndex.value + dir
-  if (next < 0 || next >= collection.value.length) return
+  if (next < 0 || next >= displayCollection.value.length) return
   isTransitioning.value = true
   currentIndex.value = next
   setTimeout(() => (isTransitioning.value = false), 500)
 }
 
 function goTo(index: number) {
-  if (isTransitioning.value || index === currentIndex.value || collection.value.length === 0) return
+  if (isTransitioning.value || index === currentIndex.value || displayCollection.value.length === 0) return
   isTransitioning.value = true
   currentIndex.value = index
   setTimeout(() => (isTransitioning.value = false), 500)
@@ -143,25 +140,56 @@ function onKeydown(e: KeyboardEvent) {
   else if (e.key === 'ArrowRight') navigate(1)
 }
 
+function extractColorsFromResults() {
+  const items = displayCollection.value
+  if (!items.length) return
+  for (const r of items) {
+    const src = r.cover || r.thumb
+    if (src) {
+      extractColor(src).then((hex) => {
+        extractedColors.value = { ...extractedColors.value, [r.id]: hex }
+      })
+    }
+  }
+}
+
+const showRewind = ref(false)
+
+// Format pour RewindOverlay (DiscogsSearchResult)
+const rawResults = computed(() => displayCollection.value.map((v) => ({
+  id: v.id,
+  type: 'release',
+  title: v.artist ? `${v.artist} - ${v.title}` : v.title,
+  thumb: v.thumb,
+  cover_image: v.cover,
+  uri: '',
+  country: '',
+  year: v.year,
+  genre: v.genre ? [v.genre] : [],
+  style: [],
+  format: [],
+  label: v.label ? [v.label] : [],
+  catno: '',
+  resource_url: '',
+  community: { want: 0, have: 0 },
+})))
+
+async function handleRemove(discogsId: number) {
+  await removeFromCollection(discogsId)
+}
+
 onMounted(async () => {
+  isCollectionLoading.value = true
+  await fetchCollection()
+  isCollectionLoading.value = false
+  extractColorsFromResults()
+  currentIndex.value = Math.min(2, Math.floor(displayCollection.value.length / 2))
   window.addEventListener('keydown', onKeydown)
   resizeHandler = () => {
     isMobile.value = window.innerWidth < 640
   }
   resizeHandler()
   window.addEventListener('resize', resizeHandler)
-  currentIndex.value = Math.min(2, Math.floor(collection.value.length / 2))
-
-  if (apiData.value?.results) {
-    for (const r of apiData.value.results) {
-      const src = r.thumb || r.cover_image
-      if (src) {
-        extractColor(src).then((hex) => {
-          extractedColors.value = { ...extractedColors.value, [r.id]: hex }
-        })
-      }
-    }
-  }
 })
 onUnmounted(() => {
   window.removeEventListener('keydown', onKeydown)
@@ -198,6 +226,7 @@ onUnmounted(() => {
         </div>
         <div class="flex flex-wrap items-center gap-2 sm:shrink-0">
           <UButton
+            v-if="displayCollection.length"
             class="min-h-[44px] cursor-pointer rounded-lg bg-g-black px-4 py-2.5 text-sm font-medium text-g-white hover:bg-g-700"
             @click="showRewind = true"
           >
@@ -224,10 +253,29 @@ onUnmounted(() => {
       </div>
     </section>
 
+    <!-- ─── LOADING ─── -->
+    <div v-if="isCollectionLoading" class="flex items-center justify-center py-24">
+      <UIcon name="i-lucide-loader-2" class="h-8 w-8 animate-spin text-g-400" />
+    </div>
+
+    <!-- ─── EMPTY STATE ─── -->
+    <div v-else-if="!displayCollection.length" class="flex flex-col items-center justify-center py-24 text-center">
+      <UIcon name="i-lucide-library-big" class="h-16 w-16 text-g-200 sm:h-20 sm:w-20" />
+      <p class="mt-4 text-base font-medium text-g-950">Ta collection est vide</p>
+      <p class="mt-1 text-sm text-g-500">Ajoute des vinyles depuis la page Explorer ou les fiches vinyle.</p>
+      <NuxtLink to="/explore" class="mt-6">
+        <UButton
+          class="min-h-[44px] cursor-pointer rounded-lg bg-g-black px-5 py-2.5 text-sm font-medium text-g-white hover:bg-g-700"
+        >
+          Explorer le catalogue
+        </UButton>
+      </NuxtLink>
+    </div>
+
     <!-- ═══════════════════════════════════════ -->
     <!-- ─── 3D SHOWCASE MODE ─── -->
     <!-- ═══════════════════════════════════════ -->
-    <template v-if="viewMode === 'showcase'">
+    <template v-else-if="viewMode === 'showcase'">
       <!-- Carousel -->
       <section
         class="relative overflow-hidden bg-white px-4 sm:px-6"
@@ -245,7 +293,7 @@ onUnmounted(() => {
           <!-- Carousel container -->
           <div class="carousel-stage relative mx-auto h-[340px] w-full sm:h-[480px]" style="perspective: 1200px">
             <div
-              v-for="(vinyl, index) in collection"
+              v-for="(vinyl, index) in displayCollection"
               :key="vinyl.id"
               class="carousel-card absolute left-1/2 top-1/2"
               :style="getCardStyle(index)"
@@ -283,7 +331,7 @@ onUnmounted(() => {
           </button>
           <button
             class="absolute right-1 top-1/2 z-30 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-g-100 bg-white text-g-black shadow-sm transition-all hover:bg-g-50 disabled:pointer-events-none disabled:opacity-20 sm:right-4 sm:h-12 sm:w-12"
-            :disabled="currentIndex === collection.length - 1 || collection.length === 0"
+            :disabled="currentIndex === displayCollection.length - 1 || displayCollection.length === 0"
             @click="navigate(1)"
           >
             <UIcon name="i-lucide-chevron-right" class="h-5 w-5 sm:h-6 sm:w-6" />
@@ -292,7 +340,7 @@ onUnmounted(() => {
           <!-- Position indicator (py-3 for touch target) -->
           <div class="flex items-center justify-center gap-1.5 py-3 pb-6 sm:pb-8">
             <button
-              v-for="(vinyl, index) in collection"
+              v-for="(vinyl, index) in displayCollection"
               :key="vinyl.id"
               class="cursor-pointer rounded-full transition-all"
               :class="index === currentIndex
@@ -337,7 +385,7 @@ onUnmounted(() => {
                   <span class="rounded-lg bg-g-100 px-2 py-0.5 text-xs font-medium text-g-black">{{ selectedVinyl.condition }}</span>
                 </div>
 
-                <div class="mt-3 flex flex-wrap items-center justify-center gap-4 sm:mt-4 sm:justify-start">
+                <div v-if="selectedVinyl.added" class="mt-3 flex flex-wrap items-center justify-center gap-4 sm:mt-4 sm:justify-start">
                   <p class="text-sm text-g-400">
                     Ajouté le {{ selectedVinyl.added }}
                   </p>
@@ -353,7 +401,10 @@ onUnmounted(() => {
                   <UIcon name="i-lucide-external-link" class="h-4 w-4" />
                   Voir sur le marché
                 </NuxtLink>
-                <button class="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-lg border border-g-200 px-5 py-2.5 text-sm text-g-500 transition-colors hover:border-g-400 hover:text-g-950">
+                <button
+                  class="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-lg border border-g-200 px-5 py-2.5 text-sm text-g-500 transition-colors hover:border-red-400 hover:text-red-400"
+                  @click="handleRemove(selectedVinyl.id)"
+                >
                   <UIcon name="i-lucide-trash-2" class="h-4 w-4" />
                   Retirer
                 </button>
@@ -367,43 +418,51 @@ onUnmounted(() => {
     <!-- ═══════════════════════════════════════ -->
     <!-- ─── GRID MODE ─── -->
     <!-- ═══════════════════════════════════════ -->
-    <section v-if="viewMode === 'grid'" class="px-4 py-6 sm:px-6 sm:py-10">
+    <section v-else-if="viewMode === 'grid'" class="px-4 py-6 sm:px-6 sm:py-10">
       <div class="mx-auto grid max-w-[1400px] grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
-        <NuxtLink
+        <div
           v-for="vinyl in collection"
           :key="vinyl.id"
-          :to="`/vinyl/${vinyl.id}`"
           class="group cursor-pointer"
         >
-          <div class="relative aspect-square overflow-hidden rounded-lg transition-transform group-hover:scale-[1.03]" :style="{ backgroundColor: vinyl.color }">
-            <img
-              v-if="vinyl.cover || vinyl.thumb"
-              :src="vinyl.cover || vinyl.thumb"
-              :alt="vinyl.title"
-              class="h-full w-full object-cover"
-              loading="lazy"
-              decoding="async"
-            >
-            <div v-else class="flex h-full w-full items-center justify-center">
-              <span class="select-none text-3xl font-bold text-white/25">
-                {{ getInitials(vinyl.artist) }}
-              </span>
+          <NuxtLink :to="`/vinyl/${vinyl.id}`" class="block">
+            <div class="relative aspect-square overflow-hidden rounded-lg transition-transform group-hover:scale-[1.03]" :style="{ backgroundColor: vinyl.color }">
+              <img
+                v-if="vinyl.cover || vinyl.thumb"
+                :src="vinyl.cover || vinyl.thumb"
+                :alt="vinyl.title"
+                class="h-full w-full object-cover"
+                loading="lazy"
+                decoding="async"
+              >
+              <div v-else class="flex h-full w-full items-center justify-center">
+                <span class="select-none text-3xl font-bold text-white/25">
+                  {{ getInitials(vinyl.artist) }}
+                </span>
+              </div>
+              <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3 pt-8">
+                <p class="truncate text-sm font-medium text-white">{{ vinyl.title }}</p>
+                <p class="truncate text-xs text-white/60">{{ vinyl.artist }}</p>
+              </div>
             </div>
-            <div class="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/60 to-transparent p-3 pt-8">
-              <p class="truncate text-sm font-medium text-white">{{ vinyl.title }}</p>
-              <p class="truncate text-xs text-white/60">{{ vinyl.artist }}</p>
-            </div>
-          </div>
+          </NuxtLink>
           <div class="mt-2 flex items-center justify-between">
             <span class="text-[11px] text-g-400">{{ vinyl.label }} · {{ vinyl.year }}</span>
+            <button
+              class="min-h-[36px] min-w-[36px] cursor-pointer rounded-lg bg-g-100 p-2 text-g-500 transition-colors hover:bg-red-50 hover:text-red-500"
+              title="Retirer de ma collection"
+              @click.prevent="handleRemove(vinyl.id)"
+            >
+              <UIcon name="i-lucide-trash-2" class="h-4 w-4" />
+            </button>
           </div>
-        </NuxtLink>
+        </div>
       </div>
     </section>
 
     <AppFooter />
 
-    <RewindOverlay v-model:show="showRewind" :results="rawResults" />
+    <RewindOverlay v-if="displayCollection.length" v-model:show="showRewind" :results="rawResults" />
   </div>
 </template>
 

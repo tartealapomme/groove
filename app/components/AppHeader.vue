@@ -4,6 +4,7 @@ import logoBlanc from '~/assets/img/groov_logo_blanc.svg'
 const { openLogin, openRegister } = useAuthModal()
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
+const { isAdmin } = useCurrentProfile()
 
 const showUserMenu = ref(false)
 const showAuthMenu = ref(false)
@@ -121,6 +122,21 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
       <!-- Logged in -->
       <div v-else ref="menuRef" class="relative flex items-center gap-2 sm:gap-5">
         <NuxtLink
+          v-if="isAdmin"
+          to="/admin"
+          class="hidden min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-lg border border-g-600 text-g-300 transition-colors hover:border-g-400 hover:bg-g-800 hover:text-g-white sm:flex"
+          title="Panneau admin"
+        >
+          <UIcon name="i-lucide-shield-check" class="h-5 w-5" />
+        </NuxtLink>
+        <NuxtLink
+          to="/wishlist"
+          class="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center text-g-400 transition-colors hover:text-g-white"
+          title="Ma wishlist"
+        >
+          <UIcon name="i-lucide-heart" class="h-5 w-5" />
+        </NuxtLink>
+        <NuxtLink
           to="/bibliotheque"
           class="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center text-g-400 transition-colors hover:text-g-white"
           title="Ma bibliothèque"
@@ -129,10 +145,17 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
         </NuxtLink>
 
         <button
-          class="flex h-10 w-10 min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-full border border-g-600 bg-g-700 text-xs font-bold text-g-white transition-colors hover:border-g-400 hover:bg-g-600 sm:h-9 sm:w-9 sm:min-h-0 sm:min-w-0"
+          type="button"
+          class="flex h-10 w-10 min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center overflow-hidden rounded-full border border-g-600 bg-g-700 text-xs font-bold text-g-white transition-colors hover:border-g-400 hover:bg-g-600 sm:h-9 sm:w-9 sm:min-h-0 sm:min-w-0"
           @click.stop="showUserMenu = !showUserMenu"
         >
-          {{ userInitials }}
+          <img
+            v-if="user?.user_metadata?.avatar_url"
+            :src="user.user_metadata.avatar_url"
+            :alt="userInitials"
+            class="h-full w-full object-cover"
+          >
+          <span v-else>{{ userInitials }}</span>
         </button>
 
         <!-- Dropdown menu -->
@@ -154,6 +177,31 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
             </div>
 
             <div class="py-1">
+              <NuxtLink
+                to="/profil"
+                class="flex min-h-[44px] cursor-pointer items-center gap-3 px-4 py-3 text-sm text-g-300 transition-colors hover:bg-g-800 hover:text-g-white sm:py-2.5"
+                @click="showUserMenu = false"
+              >
+                <UIcon name="i-lucide-user" class="h-4 w-4 shrink-0 text-g-500" />
+                Mon profil
+              </NuxtLink>
+              <NuxtLink
+                v-if="isAdmin"
+                to="/admin"
+                class="flex min-h-[44px] cursor-pointer items-center gap-3 px-4 py-3 text-sm text-amber-300 transition-colors hover:bg-g-800 hover:text-amber-200 sm:py-2.5"
+                @click="showUserMenu = false"
+              >
+                <UIcon name="i-lucide-shield-check" class="h-4 w-4 shrink-0 text-amber-400" />
+                Panneau admin
+              </NuxtLink>
+              <NuxtLink
+                to="/wishlist"
+                class="flex min-h-[44px] cursor-pointer items-center gap-3 px-4 py-3 text-sm text-g-300 transition-colors hover:bg-g-800 hover:text-g-white sm:py-2.5"
+                @click="showUserMenu = false"
+              >
+                <UIcon name="i-lucide-heart" class="h-4 w-4 shrink-0 text-g-500" />
+                Ma wishlist
+              </NuxtLink>
               <NuxtLink
                 to="/bibliotheque"
                 class="flex min-h-[44px] cursor-pointer items-center gap-3 px-4 py-3 text-sm text-g-300 transition-colors hover:bg-g-800 hover:text-g-white sm:py-2.5"
