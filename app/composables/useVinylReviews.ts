@@ -5,6 +5,7 @@ type ReviewRow = Database['public']['Tables']['vinyl_reviews']['Row']
 export interface ReviewWithProfile extends ReviewRow {
   profiles?: {
     display_name: string | null
+    username: string | null
     avatar_url: string | null
     email: string | null
   } | null
@@ -17,7 +18,7 @@ export function useVinylReviews() {
   async function getReviewsForVinyl(discogsId: number): Promise<ReviewWithProfile[]> {
     const { data, error } = await supabase
       .from('vinyl_reviews')
-      .select('*')
+      .select('*, profiles(display_name, username, avatar_url, email)')
       .eq('discogs_id', discogsId)
       .order('created_at', { ascending: false })
 

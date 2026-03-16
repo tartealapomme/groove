@@ -1,6 +1,4 @@
 <script lang="ts" setup>
-import type { Database } from '~/database.types'
-
 const { openRegister } = useAuthModal()
 const { searchReleases } = useDiscogs()
 const { getRecommendations } = useRecommendations()
@@ -37,24 +35,9 @@ const filters = [
   { id: 'Classical', label: 'Classique' },
 ]
 
-const supabase = useSupabaseClient<Database>()
-
 const { data: searchData, pending: isInitialLoading } = await useAsyncData(
   'home-vinyls',
   () => searchReleases({ per_page: 20, sort: 'want', sort_order: 'desc' }),
-  { lazy: true },
-)
-
-const { data: editorialTrends } = await useAsyncData(
-  'editorial-trends',
-  async () => {
-    const { data, error } = await supabase
-      .from('homepage_trends')
-      .select('*')
-      .order('position', { ascending: true })
-    if (error) return []
-    return data || []
-  },
   { lazy: true },
 )
 
@@ -98,12 +81,6 @@ function formatWantCount(n: number): string {
 }
 
 const trendingArtists = computed(() => {
-  if (editorialTrends.value?.length) {
-    return editorialTrends.value.map(t => ({
-      name: t.title,
-      artist: t.artist,
-    }))
-  }
   const byArtist = new Map<string, number>()
   for (const v of vinyls.value) {
     const name = (v.artist || '').trim()

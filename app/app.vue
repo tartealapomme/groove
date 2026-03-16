@@ -7,6 +7,7 @@ const { showLogin, showRegister, closeAll, switchToRegister, switchToLogin } = u
 const { start: startOnboarding } = useOnboarding()
 const toast = useToast()
 const supabase = useSupabaseClient()
+const route = useRoute()
 
 const isLoginLoading = ref(false)
 const isRegisterLoading = ref(false)
@@ -46,7 +47,8 @@ async function onLogin(payload: FormSubmitEvent<LoginSchema>) {
     if (data.session) {
       toast.add({ title: 'Bienvenue !', description: 'Vous êtes connecté.', color: 'success' })
       closeAll()
-      await navigateTo('/')
+      const redirect = route.query.redirect as string | undefined
+      await navigateTo(redirect || '/')
     }
   }
   finally {
@@ -75,8 +77,15 @@ async function onForgotPassword() {
 }
 
 // ── Register ──
+const usernameSchema = z
+  .string()
+  .min(3, '3 caractères minimum')
+  .max(30, '30 caractères maximum')
+  .regex(/^[a-z0-9_]+$/, 'Lettres minuscules, chiffres et underscore uniquement')
+
 const registerSchema = z
   .object({
+    username: usernameSchema,
     email: z.email('Email invalide'),
     password: z.string('Le mot de passe est requis').min(8, 'Au moins 8 caractères'),
     confirmPassword: z.string('Confirmation requise'),
@@ -89,11 +98,12 @@ const registerSchema = z
 
 type RegisterSchema = z.output<typeof registerSchema>
 
-const registerState = reactive({ email: '', password: '', confirmPassword: '', acceptTerms: false })
+const registerState = reactive({ username: '', email: '', password: '', confirmPassword: '', acceptTerms: false })
 
 async function onRegister(payload: FormSubmitEvent<RegisterSchema>) {
   isRegisterLoading.value = true
   try {
+    const username = payload.data.username.toLowerCase().trim()
     const { data, error } = await supabase.auth.signUp({
       email: payload.data.email,
       password: payload.data.password,
@@ -108,6 +118,18 @@ async function onRegister(payload: FormSubmitEvent<RegisterSchema>) {
       if (data.user.identities?.length === 0) {
         toast.add({ title: 'Compte existant', description: 'Un compte existe déjà avec cet email. Connectez-vous.', color: 'error' })
         switchToLogin()
+        return
+      }
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ username })
+        .eq('id', data.user.id)
+      if (profileError) {
+        toast.add({
+          title: "Erreur d'inscription",
+          description: profileError.code === '23505' ? 'Ce pseudo est déjà pris.' : profileError.message,
+          color: 'error',
+        })
         return
       }
       toast.add({
@@ -128,6 +150,7 @@ watch([showLogin, showRegister], () => {
   if (!showLogin.value && !showRegister.value) {
     loginState.email = ''
     loginState.password = ''
+    registerState.username = ''
     registerState.email = ''
     registerState.password = ''
     registerState.confirmPassword = ''
@@ -256,6 +279,20 @@ watch([showLogin, showRegister], () => {
             </p>
 
             <UForm :schema="registerSchema" :state="registerState" class="mt-6 space-y-4" @submit="onRegister">
+              <UFormField label="Pseudo" name="username">
+                <template #label>
+                  <span class="text-sm text-g-300">Pseudo</span>
+                </template>
+                <UInput
+                  v-model="registerState.username"
+                  type="text"
+                  placeholder="johndoe"
+                  size="lg"
+                  :ui="{ root: 'w-full' }"
+                  class="[&_input]:rounded-lg [&_input]:border-g-500 [&_input]:bg-g-700 [&_input]:text-g-white [&_input]:placeholder-g-400 [&_input]:focus:border-g-300 [&_input]:focus:bg-g-600 [&_input]:focus:outline-none [&_input]:focus:ring-0"
+                />
+              </UFormField>
+
               <UFormField label="Email" name="email">
                 <template #label>
                   <span class="text-sm text-g-300">Email</span>

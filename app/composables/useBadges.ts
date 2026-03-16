@@ -153,12 +153,20 @@ export function useBadges() {
   }
 
   async function checkAndAwardBadges(context: BadgeContext) {
-    if (!user.value?.id) return []
+    // Récupère de façon robuste l'id utilisateur
+    let uid = user.value?.id
+
+    if (!uid) {
+      const { data: { session } } = await supabase.auth.getSession()
+      uid = session?.user?.id ?? null
+    }
+
+    if (!uid) return []
 
     const { data: existing } = await supabase
       .from('user_badges')
       .select('badge_key')
-      .eq('user_id', user.value.id)
+      .eq('user_id', uid)
 
     const existingKeys = new Set((existing ?? []).map(b => b.badge_key))
     const newBadges: BadgeDefinition[] = []
@@ -168,7 +176,7 @@ export function useBadges() {
       if (badge.check(context)) {
         const { error } = await supabase
           .from('user_badges')
-          .insert({ user_id: user.value.id, badge_key: badge.key })
+          .insert({ user_id: uid, badge_key: badge.key })
 
         if (!error) newBadges.push(badge)
       }

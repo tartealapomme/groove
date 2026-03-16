@@ -11,14 +11,13 @@ const supabase = useSupabaseClient<Database>()
 const user = useSupabaseUser()
 const { searchReleases } = useDiscogs()
 
-const activeTab = ref<'overview' | 'users' | 'collections' | 'favorites' | 'trends'>('overview')
+const activeTab = ref<'overview' | 'users' | 'collections' | 'favorites'>('overview')
 
 const tabs = [
   { id: 'overview', label: 'Vue d’ensemble', icon: 'i-lucide-gauge' },
   { id: 'users', label: 'Utilisateurs', icon: 'i-lucide-users' },
   { id: 'collections', label: 'Collections', icon: 'i-lucide-library' },
   { id: 'favorites', label: 'Wishlists', icon: 'i-lucide-heart' },
-  { id: 'trends', label: 'Tendances home', icon: 'i-lucide-trending-up' },
 ]
 
 // Stats overview
@@ -151,88 +150,6 @@ const { data: favoritesData } = await useAsyncData('admin-favorites', async () =
 })
 
 const favorites = computed(() => favoritesData.value || [])
-
-// Tendances éditoriales pour la home
-const { data: trendsData, refresh: refreshTrends } = await useAsyncData('admin-trends', async () => {
-  const { data, error } = await supabase
-    .from('homepage_trends')
-    .select('*')
-    .order('position', { ascending: true })
-
-  if (error) {
-    console.error('[groov] admin trends error', error)
-    return []
-  }
-  return data || []
-})
-
-const trends = computed(() => trendsData.value || [])
-
-const newTrend = reactive({
-  title: '',
-  artist: '',
-  discogs_id: null as number | null,
-  cover: '',
-  position: 0,
-})
-
-async function addTrend() {
-  if (!newTrend.title || !newTrend.artist) return
-  const { error } = await supabase
-    .from('homepage_trends')
-    .insert({
-      title: newTrend.title,
-      artist: newTrend.artist,
-      discogs_id: newTrend.discogs_id,
-      cover: newTrend.cover || null,
-      position: newTrend.position,
-    })
-
-  if (error) {
-    console.error('[groov] add trend error', error)
-    return
-  }
-
-  newTrend.title = ''
-  newTrend.artist = ''
-  newTrend.discogs_id = null
-  newTrend.cover = ''
-  newTrend.position = 0
-
-  await refreshTrends()
-}
-
-async function updateTrend(trend: any) {
-  const { error } = await supabase
-    .from('homepage_trends')
-    .update({
-      title: trend.title,
-      artist: trend.artist,
-      discogs_id: trend.discogs_id,
-      cover: trend.cover,
-      position: trend.position,
-    })
-    .eq('id', trend.id)
-
-  if (error) {
-    console.error('[groov] update trend error', error)
-    return
-  }
-  await refreshTrends()
-}
-
-async function deleteTrend(trendId: string) {
-  const { error } = await supabase
-    .from('homepage_trends')
-    .delete()
-    .eq('id', trendId)
-
-  if (error) {
-    console.error('[groov] delete trend error', error)
-    return
-  }
-  await refreshTrends()
-}
 </script>
 
 <template>
@@ -334,6 +251,13 @@ async function deleteTrend(trendId: string) {
                   <p class="mt-0.5 text-xs text-g-400">
                     {{ row.id }}
                   </p>
+                  <NuxtLink
+                    :to="`/profil/${(row as { username?: string }).username ?? row.id}`"
+                    class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-g-500 transition-colors hover:text-g-950"
+                  >
+                    <UIcon name="i-lucide-external-link" class="h-3 w-3" />
+                    Voir le profil
+                  </NuxtLink>
                 </td>
                 <td class="px-4 py-3">
                   <span
@@ -518,183 +442,6 @@ async function deleteTrend(trendId: string) {
           </table>
         </div>
       </section>
-
-      <section v-else-if="activeTab === 'trends'" class="space-y-4">
-        <div class="flex items-center justify-between gap-3">
-          <h2 class="text-sm font-semibold text-g-900">Tendances de l’accueil</h2>
-          <p class="text-xs text-g-500">
-            {{ trends.length }} entrée{{ trends.length > 1 ? 's' : '' }}
-          </p>
-        </div>
-
-        <!-- Formulaire d’ajout -->
-        <div class="rounded-xl border border-dashed border-g-300 bg-white/60 p-4 sm:p-5">
-          <!-- Recherche Discogs -->
-          <div class="mb-4 space-y-2">
-            <label class="text-[11px] font-medium uppercase tracking-[0.15em] text-g-400">Rechercher un vinyle (Discogs)</label>
-            <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-              <div class="flex flex-1 items-center rounded-lg border border-g-200 bg-white px-3 py-2">
-                <UIcon name="i-lucide-search" class="mr-2 h-4 w-4 text-g-400" />
-                <input
-                  v-model="newTrend.title"
-                  type="text"
-                  class="w-full bg-transparent text-sm outline-none"
-                  placeholder="Tape un titre ou un artiste…"
-                >
-              </div>
-              <UButton
-                size="sm"
-                class="min-h-[36px] cursor-pointer rounded-lg bg-g-black px-4 text-xs font-medium text-g-white hover:bg-g-700"
-                :disabled="!newTrend.title"
-                @click="addTrend"
-              >
-                Ajouter directement
-              </UButton>
-            </div>
-            <p class="text-[11px] text-g-400">
-              Tu peux aussi utiliser le champ Discogs ID si tu le connais, via le backoffice ou en copiant depuis une fiche vinyle.
-            </p>
-          </div>
-
-          <h3 class="mb-3 text-xs font-semibold uppercase tracking-[0.15em] text-g-400">
-            Détails de la tendance
-          </h3>
-          <div class="grid gap-3 sm:grid-cols-[2fr_2fr_1fr]">
-            <div class="space-y-1.5">
-              <label class="text-[11px] font-medium uppercase tracking-[0.15em] text-g-400">Titre</label>
-              <input
-                v-model="newTrend.title"
-                type="text"
-                class="w-full rounded-lg border border-g-200 bg-white px-3 py-2 text-sm outline-none ring-0 transition-colors focus:border-g-900"
-                placeholder="Titre du vinyle…"
-              >
-            </div>
-            <div class="space-y-1.5">
-              <label class="text-[11px] font-medium uppercase tracking-[0.15em] text-g-400">Artiste</label>
-              <input
-                v-model="newTrend.artist"
-                type="text"
-                class="w-full rounded-lg border border-g-200 bg-white px-3 py-2 text-sm outline-none ring-0 transition-colors focus:border-g-900"
-                placeholder="Nom de l’artiste…"
-              >
-            </div>
-            <div class="grid grid-cols-2 gap-2 sm:grid-cols-2">
-              <div class="space-y-1.5">
-                <label class="text-[11px] font-medium uppercase tracking-[0.15em] text-g-400">Discogs ID</label>
-                <input
-                  v-model.number="newTrend.discogs_id"
-                  type="number"
-                  class="w-full rounded-lg border border-g-200 bg-white px-3 py-2 text-sm outline-none ring-0 transition-colors focus:border-g-900"
-                  placeholder="ID"
-                >
-              </div>
-              <div class="space-y-1.5">
-                <label class="text-[11px] font-medium uppercase tracking-[0.15em] text-g-400">Position</label>
-                <input
-                  v-model.number="newTrend.position"
-                  type="number"
-                  class="w-full rounded-lg border border-g-200 bg-white px-3 py-2 text-sm outline-none ring-0 transition-colors focus:border-g-900"
-                  placeholder="0"
-                >
-              </div>
-            </div>
-          </div>
-          <div class="mt-3 space-y-1.5">
-            <label class="text-[11px] font-medium uppercase tracking-[0.15em] text-g-400">URL cover (optionnel)</label>
-            <input
-              v-model="newTrend.cover"
-              type="text"
-              class="w-full rounded-lg border border-g-200 bg-white px-3 py-2 text-sm outline-none ring-0 transition-colors focus:border-g-900"
-              placeholder="https://…"
-            >
-          </div>
-          <div class="mt-4 flex justify-end">
-            <UButton
-              size="sm"
-              class="min-h-[36px] cursor-pointer rounded-lg bg-g-black px-4 text-xs font-medium text-g-white hover:bg-g-700"
-              :disabled="!newTrend.title || !newTrend.artist"
-              @click="addTrend"
-            >
-              Ajouter
-            </UButton>
-          </div>
-        </div>
-
-        <!-- Liste des tendances -->
-        <div class="overflow-x-auto rounded-xl border border-g-200 bg-white">
-          <table class="min-w-full text-left text-sm">
-            <thead class="bg-g-50 text-xs font-semibold uppercase tracking-[0.15em] text-g-400">
-              <tr>
-                <th class="px-4 py-3">Titre</th>
-                <th class="px-4 py-3 hidden sm:table-cell">Artiste</th>
-                <th class="px-4 py-3 hidden sm:table-cell">Discogs ID</th>
-                <th class="px-4 py-3">Position</th>
-                <th class="px-4 py-3 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr
-                v-for="trend in trends"
-                :key="trend.id"
-                class="border-t border-g-100 hover:bg-g-50/60"
-              >
-                <td class="max-w-[260px] px-4 py-3">
-                  <input
-                    v-model="trend.title"
-                    type="text"
-                    class="w-full rounded-lg border border-transparent bg-transparent px-0 py-1 text-sm text-g-900 outline-none focus:border-g-900"
-                  >
-                </td>
-                <td class="hidden max-w-[220px] px-4 py-3 sm:table-cell">
-                  <input
-                    v-model="trend.artist"
-                    type="text"
-                    class="w-full rounded-lg border border-transparent bg-transparent px-0 py-1 text-sm text-g-900 outline-none focus:border-g-900"
-                  >
-                </td>
-                <td class="hidden px-4 py-3 text-xs text-g-500 sm:table-cell">
-                  <input
-                    v-model.number="trend.discogs_id"
-                    type="number"
-                    class="w-full rounded-lg border border-transparent bg-transparent px-0 py-1 text-xs text-g-900 outline-none focus:border-g-900"
-                  >
-                </td>
-                <td class="px-4 py-3 text-xs text-g-500">
-                  <input
-                    v-model.number="trend.position"
-                    type="number"
-                    class="w-16 rounded-lg border border-g-200 bg-g-50 px-2 py-1 text-xs text-g-900 outline-none focus:border-g-900"
-                  >
-                </td>
-                <td class="px-4 py-3 text-right">
-                  <div class="flex justify-end gap-2">
-                    <button
-                      class="inline-flex min-h-[32px] items-center justify-center rounded-lg border border-g-200 px-2.5 py-1.5 text-xs text-g-600 transition-colors hover:border-g-900 hover:text-g-900"
-                      @click="updateTrend(trend)"
-                    >
-                      <UIcon name="i-lucide-save" class="mr-1.5 h-3.5 w-3.5" />
-                      Sauvegarder
-                    </button>
-                    <button
-                      class="inline-flex min-h-[32px] items-center justify-center rounded-lg border border-red-200 px-2.5 py-1.5 text-xs text-red-500 transition-colors hover:border-red-400 hover:bg-red-50"
-                      @click="deleteTrend(trend.id)"
-                    >
-                      <UIcon name="i-lucide-trash-2" class="mr-1.5 h-3.5 w-3.5" />
-                      Supprimer
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              <tr v-if="!trends.length">
-                <td colspan="5" class="px-4 py-6 text-center text-sm text-g-400">
-                  Aucune tendance définie. Ajoute-en une avec le formulaire ci-dessus.
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
     </main>
   </div>
 </template>
-

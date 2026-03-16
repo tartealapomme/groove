@@ -37,7 +37,6 @@ const genreLabels: Record<string, string> = {
 const isEditing = ref(false)
 const displayName = ref('')
 const profileUsername = ref('')
-const profileAvatarUrl = ref<string | null>(null)
 const avatarFileInput = ref<HTMLInputElement | null>(null)
 const isUploadingAvatar = ref(false)
 const isLoading = ref(true)
@@ -49,7 +48,7 @@ const userInitials = computed(() => {
   return user.value?.email?.substring(0, 2).toUpperCase() || '?'
 })
 
-const avatarUrl = computed(() => profileAvatarUrl.value || (user.value?.user_metadata?.avatar_url as string | undefined))
+const avatarUrl = computed(() => user.value?.user_metadata?.avatar_url as string | undefined)
 
 // Stats from actual user data
 const collectionStats = computed(() => {
@@ -126,39 +125,10 @@ async function onAvatarChange(e: Event) {
   const file = input.files?.[0]
   if (!file || !file.type.startsWith('image/')) return
 
-  // Limite de taille: 2 Mo
-  const maxSize = 2 * 1024 * 1024
-  if (file.size > maxSize) {
-    toast.add({
-      title: 'Image trop lourde',
-      description: 'La photo de profil doit faire moins de 2 Mo.',
-      color: 'error',
-    })
-    input.value = ''
-    return
-  }
-
+  isUploadingAvatar.value = true
   try {
-    let uid = user.value?.id
-    if (!uid) {
-      const { data: { session } } = await supabase.auth.getSession()
-      uid = session?.user?.id ?? null
-      if (!uid) {
-        toast.add({
-          title: 'Session expirée',
-          description: 'Reconnecte-toi pour changer ta photo de profil.',
-          color: 'error',
-        })
-        input.value = ''
-        return
-      }
-    }
-
-    isUploadingAvatar.value = true
-
     const ext = file.name.split('.').pop() || 'jpg'
-    // Nouveau fichier à chaque upload pour éviter le cache navigateur
-    const path = `${uid}/avatar-${Date.now()}.${ext}`
+    const path = `${user.value?.id}/avatar.${ext}`
     const { error: uploadError } = await supabase.storage
       .from('avatars')
       .upload(path, file, { upsert: true })
@@ -166,46 +136,13 @@ async function onAvatarChange(e: Event) {
     if (uploadError) throw uploadError
 
     const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(path)
-    // Met à jour l'avatar côté auth, dans profiles, et en local
     await supabase.auth.updateUser({ data: { avatar_url: publicUrl } })
-    await supabase.from('profiles').update({ avatar_url: publicUrl }).eq('id', uid)
-
-    if (user.value) {
-      user.value = {
-        ...user.value,
-        user_metadata: {
-          ...(user.value.user_metadata || {}),
-          avatar_url: publicUrl,
-        },
-      } as typeof user.value
-    }
-
-    // Met à jour l'URL locale utilisée dans le template
-    profileAvatarUrl.value = publicUrl
-
-    toast.add({
-      title: 'Photo mise à jour',
-      description: 'Ta photo de profil a bien été enregistrée.',
-      color: 'success',
-    })
   }
   catch (err) {
     console.error('Avatar upload failed:', err)
-    const anyErr = err as any
-    const rawMessage: string = anyErr?.message || anyErr?.error_description || anyErr?.error || ''
-
-    let description = rawMessage || 'Impossible de changer la photo de profil.'
-
-    if (rawMessage.toLowerCase().includes('row-level security')) {
-      description = 'Remplacement de la photo bloqué par les règles RLS du bucket \"avatars\" (UPDATE). Vérifie la policy \"Users update avatars\" sur storage.objects.'
-    }
-    else if (anyErr?.statusCode === '403' || anyErr?.status === 403) {
-      description = 'Permission refusée pour écrire dans le bucket \"avatars\". Vérifie les policies INSERT/UPDATE pour les utilisateurs authentifiés.'
-    }
-
     toast.add({
       title: 'Erreur',
-      description,
+      description: 'Impossible de changer la photo. Vérifiez que le bucket "avatars" existe dans Supabase Storage.',
       color: 'error',
     })
   }
@@ -216,91 +153,25 @@ async function onAvatarChange(e: Event) {
 }
 
 async function saveProfile() {
-  let uid = user.value?.id
+  const uid = user.value?.id
+  if (!uid) return
 
-  if (!uid) {
-    const { data: { session }, error } = await supabase.auth.getSession()
-    uid = session?.user?.id ?? null
-    if (error || !uid) {
-      toast.add({
-        title: 'Session expirée',
-        description: 'Reconnecte-toi pour modifier ton profil.',
-        color: 'error',
-      })
+  const display = displayName.value.trim()
+  await supabase.auth.updateUser({ data: { display_name: display } })
+  await supabase.from('profiles').update({ display_name: display || null }).eq('id', uid)
+
+  const raw = profileUsername.value.toLowerCase().trim()
+  if (raw && /^[a-z0-9_]{3,30}$/.test(raw)) {
+    const { error } = await supabase.from('profiles').update({ username: raw }).eq('id', uid)
+    if (error) {
+      toast.add({ title: 'Erreur', description: error.code === '23505' ? 'Ce pseudo est déjà pris.' : error.message, color: 'error' })
       return
     }
+    profileUsername.value = raw
   }
 
-  try {
-    const display = displayName.value.trim()
-
-    // Met à jour le display_name côté auth
-    const { error: authError } = await supabase.auth.updateUser({ data: { display_name: display } })
-    if (authError) {
-      toast.add({
-        title: 'Erreur',
-        description: authError.message,
-        color: 'error',
-      })
-      return
-    }
-
-    // Met à jour le display_name dans profiles
-    const { error: profileNameError } = await supabase
-      .from('profiles')
-      .update({ display_name: display || null })
-      .eq('id', uid)
-
-    if (profileNameError) {
-      toast.add({
-        title: 'Erreur',
-        description: profileNameError.message,
-        color: 'error',
-      })
-      return
-    }
-
-    // Met à jour le cache local de l'utilisateur
-    if (user.value) {
-      user.value = {
-        ...user.value,
-        user_metadata: {
-          ...(user.value.user_metadata || {}),
-          display_name: display,
-        },
-      } as typeof user.value
-    }
-
-    // Pseudo / username
-    const raw = profileUsername.value.toLowerCase().trim()
-    if (raw && /^[a-z0-9_]{3,30}$/.test(raw)) {
-      const { error: usernameError } = await supabase
-        .from('profiles')
-        .update({ username: raw })
-        .eq('id', uid)
-
-      if (usernameError) {
-        toast.add({
-          title: 'Erreur',
-          description: usernameError.code === '23505' ? 'Ce pseudo est déjà pris.' : usernameError.message,
-          color: 'error',
-        })
-        return
-      }
-      profileUsername.value = raw
-    }
-
-    isEditing.value = false
-    toast.add({ title: 'Profil mis à jour', color: 'success' })
-  }
-  catch (err) {
-    console.error('saveProfile failed:', err)
-    toast.add({
-      title: 'Erreur',
-      description: (err as Error)?.message || 'Impossible de mettre à jour le profil.',
-      color: 'error',
-    })
-  }
+  isEditing.value = false
+  toast.add({ title: 'Profil mis à jour', color: 'success' })
 }
 
 function openPrefsEditor() {
@@ -412,8 +283,7 @@ const allBadges = getAllBadgeDefinitions()
 const newlyUnlocked = ref<typeof allBadges>([])
 
 async function refreshBadges() {
-  // Récupère de façon robuste l'id utilisateur,
-  // même si useSupabaseUser() n'est pas encore hydraté.
+  // Récupère l'id utilisateur de manière robuste
   let uid = user.value?.id
 
   if (!uid) {
@@ -450,21 +320,6 @@ async function refreshBadges() {
   unlockedBadges.value = await getUserBadges(uid)
 }
 
-watch(
-  () => ({
-    collection: collection.value.length,
-    wishlist: favorites.value.length,
-    reviews: userReviews.value.length,
-    followers: followCounts.value.followers,
-    following: followCounts.value.following,
-  }),
-  () => {
-    if (!isLoading.value) {
-      refreshBadges()
-    }
-  },
-)
-
 watch(user, loadUserMetadata, { immediate: true })
 
 onMounted(async () => {
@@ -474,10 +329,9 @@ onMounted(async () => {
 
   let uid = user.value?.id ?? (await supabase.auth.getSession()).data.session?.user?.id ?? null
   if (uid) {
-    const { data: p } = await supabase.from('profiles').select('username, display_name, avatar_url').eq('id', uid).single()
+    const { data: p } = await supabase.from('profiles').select('username, display_name').eq('id', uid).single()
     profileUsername.value = p?.username ?? ''
     if (p?.display_name && !displayName.value) displayName.value = p.display_name
-    if (p?.avatar_url) profileAvatarUrl.value = p.avatar_url
     followCounts.value = await getFollowCounts(uid)
     const rawReviews = await getUserReviews(uid)
     userReviews.value = await enrichReviews(rawReviews)
@@ -490,25 +344,12 @@ onMounted(async () => {
 
 <template>
   <div>
-    <SubNav />
     <!-- ─── PROFILE HEADER (dark, immersive) ─── -->
     <section class="relative overflow-hidden bg-g-black px-4 pb-8 pt-6 sm:px-6 sm:pb-12 sm:pt-10">
       <div class="pointer-events-none absolute inset-0 bg-gradient-to-b from-g-800/40 via-transparent to-g-black" />
       <div class="pointer-events-none absolute -right-20 -top-20 h-64 w-64 rounded-full bg-g-white/[0.02] blur-3xl" />
 
       <div class="relative mx-auto max-w-[1000px]">
-        <div class="mb-6 text-center sm:text-left">
-          <p class="text-[11px] font-medium uppercase tracking-[0.2em] text-g-400 sm:text-xs">
-            Mon espace
-          </p>
-          <h1 class="mt-1 text-2xl font-bold tracking-tight text-g-white sm:text-3xl">
-            Mon profil GROOV
-          </h1>
-          <p class="mt-1 text-sm text-g-400">
-            Gérez votre identité, vos préférences et suivez l’évolution de votre collection.
-          </p>
-        </div>
-
         <div class="flex flex-col items-center gap-6 sm:flex-row sm:items-end sm:gap-8">
           <!-- Avatar -->
           <div class="relative shrink-0">

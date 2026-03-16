@@ -237,7 +237,12 @@ async function onDeleteReview() {
 
 function getReviewerName(review: (typeof reviews.value)[number]) {
   const p = (review as any).profiles
-  return p?.display_name || p?.email?.split('@')[0] || 'Utilisateur'
+  return p?.display_name || p?.username || p?.email?.split('@')[0] || 'Utilisateur'
+}
+
+function getReviewerProfileUrl(review: (typeof reviews.value)[number]) {
+  const p = (review as any).profiles
+  return p?.username ? `/profil/${p.username}` : `/profil/${review.user_id}`
 }
 
 function getReviewerAvatar(review: (typeof reviews.value)[number]) {
@@ -616,7 +621,12 @@ watch(vinyl, () => { if (vinyl.value) loadReviews() }, { immediate: true })
                 </div>
                 <div class="min-w-0 flex-1">
                   <div class="flex items-center gap-2">
-                    <span class="text-sm font-medium text-g-950">{{ getReviewerName(review) }}</span>
+                    <NuxtLink
+                      :to="getReviewerProfileUrl(review)"
+                      class="text-sm font-medium text-g-950 transition-colors hover:text-g-500 hover:underline"
+                    >
+                      {{ getReviewerName(review) }}
+                    </NuxtLink>
                     <span v-if="review.user_id === user?.id" class="rounded bg-g-100 px-1.5 py-0.5 text-[10px] font-medium text-g-500">Vous</span>
                     <span class="text-[11px] text-g-400">{{ formatReviewDate(review.created_at) }}</span>
                   </div>

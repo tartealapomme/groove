@@ -4,7 +4,7 @@ import logoBlanc from '~/assets/img/groov_logo_blanc.svg'
 const { openLogin, openRegister } = useAuthModal()
 const user = useSupabaseUser()
 const supabase = useSupabaseClient()
-const { isAdmin } = useCurrentProfile()
+const { isAdmin, profile: currentProfile } = useCurrentProfile()
 
 const showUserMenu = ref(false)
 const showAuthMenu = ref(false)
@@ -14,6 +14,12 @@ const authMenuRef = ref<HTMLElement | null>(null)
 const userInitials = computed(() => {
   if (!user.value?.email) return '?'
   return user.value.email.substring(0, 2).toUpperCase()
+})
+
+const avatarUrl = computed(() => {
+  const profileAvatar = (currentProfile.value as any)?.avatar_url as string | null | undefined
+  const userMetaAvatar = (user.value?.user_metadata as any)?.avatar_url as string | null | undefined
+  return profileAvatar || userMetaAvatar || null
 })
 
 async function logout() {
@@ -155,8 +161,8 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
           @click.stop="showUserMenu = !showUserMenu"
         >
           <img
-            v-if="user?.user_metadata?.avatar_url"
-            :src="user.user_metadata.avatar_url"
+            v-if="avatarUrl"
+            :src="avatarUrl"
             :alt="userInitials"
             class="h-full w-full object-cover"
           >

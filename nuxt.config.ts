@@ -27,7 +27,15 @@ export default defineNuxtConfig({
       login: "/auth/login",
       callback: "/",
       include: undefined,
-      exclude: ["/auth/register", "/vinyl/*", "/explore", "/bibliotheque", "/wishlist", "/profil"],
+      exclude: [
+        "/auth/register",
+        "/vinyl/**",
+        "/explore",
+        "/bibliotheque",
+        "/wishlist",
+        "/profil",
+        "/profil/**",
+      ],
     },
   },
 })

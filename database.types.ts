@@ -102,6 +102,7 @@ export type Database = {
           display_name: string | null
           avatar_url: string | null
           bio: string | null
+          username: string | null
           created_at: string | null
         }
         Insert: {
@@ -111,6 +112,7 @@ export type Database = {
           display_name?: string | null
           avatar_url?: string | null
           bio?: string | null
+          username?: string | null
           created_at?: string | null
         }
         Update: {
@@ -120,6 +122,7 @@ export type Database = {
           display_name?: string | null
           avatar_url?: string | null
           bio?: string | null
+          username?: string | null
           created_at?: string | null
         }
         Relationships: []
@@ -235,36 +238,6 @@ export type Database = {
           onboarding_completed?: boolean
           updated_at?: string
           created_at?: string
-        }
-        Relationships: []
-      }
-      homepage_trends: {
-        Row: {
-          id: string
-          title: string
-          artist: string
-          discogs_id: number | null
-          cover: string | null
-          position: number
-          created_at: string | null
-        }
-        Insert: {
-          id?: string
-          title: string
-          artist: string
-          discogs_id?: number | null
-          cover?: string | null
-          position?: number
-          created_at?: string | null
-        }
-        Update: {
-          id?: string
-          title?: string
-          artist?: string
-          discogs_id?: number | null
-          cover?: string | null
-          position?: number
-          created_at?: string | null
         }
         Relationships: []
       }
