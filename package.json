@@ -12,19 +12,28 @@
     "supabase:stop": "npx supabase stop --workdir ./supabase"
   },
   "dependencies": {
+    "html2canvas": "^1.4.1",
     "@nuxt/eslint": "1.13.0",
     "@nuxt/ui": "4.4.0",
     "@nuxtjs/supabase": "^2.0.3",
+    "@tresjs/cientos": "^5.4.0",
+    "@tresjs/core": "^5.5.0",
+    "@tresjs/nuxt": "^5.3.0",
     "eslint": "^9.0.0",
     "nuxt": "^4.3.0",
     "supabase": "^2.75.5",
     "tailwindcss": "^4.0.0",
+    "three": "^0.183.2",
     "typescript": "^5.6.3",
     "vue": "^3.5.27",
     "vue-router": "^4.6.4",
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/three": "^0.183.1",
     "supabase": "^2.75.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["@parcel/watcher", "esbuild", "unrs-resolver", "vue-demi"]
   }
 }

@@ -3,16 +3,25 @@ import * as z from 'zod'
 import type { FormSubmitEvent, AuthFormField } from '@nuxt/ui'
 import logoNoir from '~/assets/img/groov_logo_noir.svg'
 
+definePageMeta({ layout: 'blank' })
 const toast = useToast()
 
 const fields: AuthFormField[] = [
+  { name: 'username', type: 'text', label: 'Pseudo', placeholder: 'johndoe', required: true },
   { name: 'email', type: 'email', label: 'Email', placeholder: 'Entrez votre email', required: true },
   { name: 'password', label: 'Mot de passe', type: 'password', required: true },
   { name: 'confirmPassword', label: 'Confirmer le mot de passe', type: 'password', required: true },
 ]
 
+const usernameSchema = z
+  .string()
+  .min(3, '3 caractères minimum')
+  .max(30, '30 caractères maximum')
+  .regex(/^[a-z0-9_]+$/, 'Lettres minuscules, chiffres et underscore uniquement')
+
 const schema = z
   .object({
+    username: usernameSchema,
     email: z.email('Email invalide'),
     password: z.string('Le mot de passe est requis').min(8, 'Le mot de passe doit contenir au moins 8 caractères'),
     confirmPassword: z.string('La confirmation du mot de passe est requise'),
@@ -27,6 +36,7 @@ type Schema = z.output<typeof schema>
 const supabase = useSupabaseClient()
 
 async function onSubmit(payload: FormSubmitEvent<Schema>) {
+  const username = payload.data.username.toLowerCase().trim()
   const { data, error } = await supabase.auth.signUp({
     email: payload.data.email,
     password: payload.data.password,
@@ -38,6 +48,18 @@ async function onSubmit(payload: FormSubmitEvent<Schema>) {
   }
 
   if (data.user) {
+    const { error: profileError } = await supabase
+      .from('profiles')
+      .update({ username })
+      .eq('id', data.user.id)
+    if (profileError) {
+      toast.add({
+        title: "Erreur d'inscription",
+        description: profileError.code === '23505' ? 'Ce pseudo est déjà pris.' : profileError.message,
+        color: 'error',
+      })
+      return
+    }
     toast.add({ title: 'Compte créé', description: 'Vous pouvez maintenant vous connecter.', color: 'success' })
     await navigateTo('/auth/login')
   }

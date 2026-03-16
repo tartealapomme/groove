@@ -1,10 +1,12 @@
 # Dépendances Node
 node_modules
+.pnpm-store
 
 # Build / sortie Nuxt
 .nuxt
 .output
 .vercel
+
 
 # Env
 .env
@@ -24,4 +26,5 @@ pnpm-debug.log*
 # Divers
 .DS_Store
 Thumbs.db
+.cursor
 

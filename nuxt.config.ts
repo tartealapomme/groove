@@ -5,6 +5,17 @@ export default defineNuxtConfig({
   modules: ["@nuxt/eslint", "@nuxt/ui", "@nuxtjs/supabase"],
   css: ["~/assets/css/main.css"],
 
+
+  app: {
+    pageTransition: { name: "page", mode: "out-in" },
+    head: {
+      link: [
+        { rel: "icon", type: "image/png", href: "/favicon.png" },
+      ],
+    },
+  },
+
+
   ui: {
     colorMode: false,
   },
@@ -16,7 +27,15 @@ export default defineNuxtConfig({
       login: "/auth/login",
       callback: "/",
       include: undefined,
-      exclude: ["/auth/register"],
+      exclude: [
+        "/auth/register",
+        "/vinyl/**",
+        "/explore",
+        "/bibliotheque",
+        "/wishlist",
+        "/profil",
+        "/profil/**",
+      ],
     },
   },
 })
