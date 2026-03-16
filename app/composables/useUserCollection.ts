@@ -16,26 +16,30 @@ export interface CollectionVinylInput {
   notes?: string | null
 }
 
+const collection = ref<CollectionRow[]>([])
+const _fetched = ref(false)
+
 export function useUserCollection() {
   const supabase = useSupabaseClient<Database>()
   const user = useSupabaseUser()
 
-  const collection = ref<CollectionRow[]>([])
-
-  const userId = computed(() => {
-    const u = user.value as any
-    return u?.id ?? u?.sub ?? null
-  })
+  const userId = computed(() => user.value?.id ?? null)
 
   async function fetchCollection() {
-    if (!userId.value) {
+    let uid = userId.value
+    if (!uid) {
+      const { data: { session } } = await supabase.auth.getSession()
+      uid = session?.user?.id ?? null
+    }
+    if (!uid) {
       collection.value = []
+      _fetched.value = false
       return
     }
     const { data, error } = await supabase
       .from('user_collection')
       .select('*')
-      .eq('user_id', userId.value)
+      .eq('user_id', uid)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -44,13 +48,23 @@ export function useUserCollection() {
       return
     }
     collection.value = data ?? []
+    _fetched.value = true
+  }
+
+  async function ensureLoaded() {
+    if (!_fetched.value) await fetchCollection()
   }
 
   async function addToCollection(input: CollectionVinylInput) {
-    if (!userId.value) return { error: new Error('Utilisateur non connecté') }
+    let uid = userId.value
+    if (!uid) {
+      const { data: { session } } = await supabase.auth.getSession()
+      uid = session?.user?.id ?? null
+    }
+    if (!uid) return { error: new Error('Utilisateur non connecté') }
 
     const row: CollectionInsert = {
-      user_id: userId.value,
+      user_id: uid,
       discogs_id: input.discogs_id,
       title: input.title ?? null,
       artist: input.artist ?? null,
@@ -67,7 +81,6 @@ export function useUserCollection() {
 
     if (error) {
       if (error.code === '23505') {
-        // Doublon (unique violation)
         return { error: new Error('Ce vinyle est déjà dans ta collection') }
       }
       return { error }
@@ -78,12 +91,17 @@ export function useUserCollection() {
   }
 
   async function removeFromCollection(discogsId: number) {
-    if (!userId.value) return { error: new Error('Utilisateur non connecté') }
+    let uid = userId.value
+    if (!uid) {
+      const { data: { session } } = await supabase.auth.getSession()
+      uid = session?.user?.id ?? null
+    }
+    if (!uid) return { error: new Error('Utilisateur non connecté') }
 
     const { error } = await supabase
       .from('user_collection')
       .delete()
-      .eq('user_id', userId.value)
+      .eq('user_id', uid)
       .eq('discogs_id', discogsId)
 
     if (error) return { error }
@@ -95,11 +113,18 @@ export function useUserCollection() {
     return collection.value.some(c => c.discogs_id === discogsId)
   }
 
+  function reset() {
+    collection.value = []
+    _fetched.value = false
+  }
+
   return {
     collection,
     fetchCollection,
+    ensureLoaded,
     addToCollection,
     removeFromCollection,
     isInCollection,
+    reset,
   }
 }

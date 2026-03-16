@@ -11,26 +11,30 @@ export interface FavoriteVinylInput {
   cover?: string | null
 }
 
+const favorites = ref<FavoriteRow[]>([])
+const _fetched = ref(false)
+
 export function useUserFavorites() {
   const supabase = useSupabaseClient<Database>()
   const user = useSupabaseUser()
 
-  const favorites = ref<FavoriteRow[]>([])
-
-  const userId = computed(() => {
-    const u = user.value as any
-    return u?.id ?? u?.sub ?? null
-  })
+  const userId = computed(() => user.value?.id ?? null)
 
   async function fetchFavorites() {
-    if (!userId.value) {
+    let uid = userId.value
+    if (!uid) {
+      const { data: { session } } = await supabase.auth.getSession()
+      uid = session?.user?.id ?? null
+    }
+    if (!uid) {
       favorites.value = []
+      _fetched.value = false
       return
     }
     const { data, error } = await supabase
       .from('user_favorites')
       .select('*')
-      .eq('user_id', userId.value)
+      .eq('user_id', uid)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -39,13 +43,23 @@ export function useUserFavorites() {
       return
     }
     favorites.value = data ?? []
+    _fetched.value = true
+  }
+
+  async function ensureLoaded() {
+    if (!_fetched.value) await fetchFavorites()
   }
 
   async function addFavorite(input: FavoriteVinylInput) {
-    if (!userId.value) return { error: new Error('Utilisateur non connecté') }
+    let uid = userId.value
+    if (!uid) {
+      const { data: { session } } = await supabase.auth.getSession()
+      uid = session?.user?.id ?? null
+    }
+    if (!uid) return { error: new Error('Utilisateur non connecté') }
 
     const row: FavoriteInsert = {
-      user_id: userId.value,
+      user_id: uid,
       discogs_id: input.discogs_id,
       title: input.title ?? null,
       artist: input.artist ?? null,
@@ -67,12 +81,17 @@ export function useUserFavorites() {
   }
 
   async function removeFavorite(discogsId: number) {
-    if (!userId.value) return { error: new Error('Utilisateur non connecté') }
+    let uid = userId.value
+    if (!uid) {
+      const { data: { session } } = await supabase.auth.getSession()
+      uid = session?.user?.id ?? null
+    }
+    if (!uid) return { error: new Error('Utilisateur non connecté') }
 
     const { error } = await supabase
       .from('user_favorites')
       .delete()
-      .eq('user_id', userId.value)
+      .eq('user_id', uid)
       .eq('discogs_id', discogsId)
 
     if (error) return { error }
@@ -84,11 +103,18 @@ export function useUserFavorites() {
     return favorites.value.some(f => f.discogs_id === discogsId)
   }
 
+  function reset() {
+    favorites.value = []
+    _fetched.value = false
+  }
+
   return {
     favorites,
     fetchFavorites,
+    ensureLoaded,
     addFavorite,
     removeFavorite,
     isFavorite,
+    reset,
   }
 }

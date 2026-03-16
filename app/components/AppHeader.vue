@@ -22,6 +22,11 @@ async function logout() {
   navigateTo('/')
 }
 
+function goToProfile() {
+  showUserMenu.value = false
+  navigateTo('/profil')
+}
+
 function onClickOutside(e: MouseEvent) {
   const target = e.target as Node
   if (menuRef.value && !menuRef.value.contains(target)) {
@@ -177,14 +182,14 @@ onUnmounted(() => document.removeEventListener('click', onClickOutside))
             </div>
 
             <div class="py-1">
-              <NuxtLink
-                to="/profil"
-                class="flex min-h-[44px] cursor-pointer items-center gap-3 px-4 py-3 text-sm text-g-300 transition-colors hover:bg-g-800 hover:text-g-white sm:py-2.5"
-                @click="showUserMenu = false"
+              <button
+                type="button"
+                class="flex min-h-[44px] w-full cursor-pointer items-center gap-3 px-4 py-3 text-left text-sm text-g-300 transition-colors hover:bg-g-800 hover:text-g-white sm:py-2.5"
+                @click="goToProfile"
               >
                 <UIcon name="i-lucide-user" class="h-4 w-4 shrink-0 text-g-500" />
                 Mon profil
-              </NuxtLink>
+              </button>
               <NuxtLink
                 v-if="isAdmin"
                 to="/admin"

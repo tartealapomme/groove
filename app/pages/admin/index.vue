@@ -236,9 +236,7 @@ async function deleteTrend(trendId: string) {
 </script>
 
 <template>
-  <div class="min-h-screen bg-g-50 pb-[env(safe-area-inset-bottom,0px)]">
-    <AppHeader />
-
+  <div class="bg-g-50">
     <main class="mx-auto max-w-[1400px] px-4 py-6 sm:px-6 sm:py-8">
       <header class="mb-6 flex flex-col justify-between gap-3 sm:mb-8 sm:flex-row sm:items-end">
         <div>

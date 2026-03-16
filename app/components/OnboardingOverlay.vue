@@ -15,20 +15,28 @@ const {
 
 const { searchReleases } = useDiscogs()
 
+const isFinishing = ref(false)
+
 const genres = [
-  { id: 'Rock', label: 'Rock' },
-  { id: 'Jazz', label: 'Jazz' },
-  { id: 'Electronic', label: 'Electronic' },
-  { id: 'Funk / Soul', label: 'Soul / Funk' },
-  { id: 'Hip Hop', label: 'Hip Hop' },
-  { id: 'Classical', label: 'Classical' },
-  { id: 'Pop', label: 'Pop' },
-  { id: 'Reggae', label: 'Reggae' },
-  { id: 'Blues', label: 'Blues' },
-  { id: 'Latin', label: 'Latin' },
-  { id: 'Folk, World, & Country', label: 'Folk / Country' },
-  { id: 'Stage & Screen', label: 'Stage & Screen' },
+  { id: 'Rock', label: 'Rock', icon: 'i-lucide-guitar' },
+  { id: 'Jazz', label: 'Jazz', icon: 'i-lucide-music' },
+  { id: 'Electronic', label: 'Electronic', icon: 'i-lucide-radio' },
+  { id: 'Funk / Soul', label: 'Soul / Funk', icon: 'i-lucide-mic' },
+  { id: 'Hip Hop', label: 'Hip Hop', icon: 'i-lucide-headphones' },
+  { id: 'Classical', label: 'Classical', icon: 'i-lucide-music-2' },
+  { id: 'Pop', label: 'Pop', icon: 'i-lucide-star' },
+  { id: 'Reggae', label: 'Reggae', icon: 'i-lucide-sun' },
+  { id: 'Blues', label: 'Blues', icon: 'i-lucide-heart' },
+  { id: 'Latin', label: 'Latin', icon: 'i-lucide-flame' },
+  { id: 'Folk, World, & Country', label: 'Folk / Country', icon: 'i-lucide-tree-pine' },
+  { id: 'Stage & Screen', label: 'Stage & Screen', icon: 'i-lucide-clapperboard' },
 ]
+
+const stepProgress = computed(() => {
+  if (onboardingStep.value === 'genres') return 33
+  if (onboardingStep.value === 'artists') return 66
+  return 100
+})
 
 const genreLabels: Record<string, string> = Object.fromEntries(genres.map(g => [g.id, g.label]))
 
@@ -136,6 +144,14 @@ watch(() => onboardingStep.value, (step) => {
         v-if="showOnboarding"
         class="fixed inset-0 z-[100] flex flex-col bg-g-black"
       >
+        <!-- Progress bar -->
+        <div class="absolute inset-x-0 top-0 z-10 h-1 bg-g-800">
+          <div
+            class="h-full bg-g-white transition-all duration-500 ease-out"
+            :style="{ width: `${stepProgress}%` }"
+          />
+        </div>
+
         <div class="flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-12">
           <Transition
             enter-active-class="transition duration-400 ease-out"
@@ -167,7 +183,7 @@ watch(() => onboardingStep.value, (step) => {
                 <button
                   v-for="genre in genres"
                   :key="genre.id"
-                  class="cursor-pointer rounded-full border px-5 py-2.5 text-sm font-medium transition-all duration-200"
+                  class="flex cursor-pointer items-center gap-2 rounded-full border px-5 py-2.5 text-sm font-medium transition-all duration-200"
                   :class="selectedGenres.includes(genre.id)
                     ? 'border-g-white bg-g-white text-g-black shadow-[0_0_20px_rgba(255,255,255,0.15)]'
                     : selectedGenres.length >= 5
@@ -175,6 +191,7 @@ watch(() => onboardingStep.value, (step) => {
                       : 'border-g-600 text-g-300 hover:border-g-300 hover:text-g-white'"
                   @click="toggleGenre(genre.id)"
                 >
+                  <UIcon :name="genre.icon" class="h-4 w-4 shrink-0" />
                   {{ genre.label }}
                 </button>
               </div>
@@ -426,8 +443,10 @@ watch(() => onboardingStep.value, (step) => {
               >
                 <UButton
                   size="lg"
-                  class="cursor-pointer rounded-full bg-g-white px-12 py-3 text-sm font-semibold text-g-black transition-all hover:bg-g-200 hover:shadow-[0_0_30px_rgba(255,255,255,0.1)]"
-                  @click="finish"
+                  class="cursor-pointer rounded-full bg-g-white px-12 py-3 text-sm font-semibold text-g-black transition-all hover:bg-g-200 hover:shadow-[0_0_30px_rgba(255,255,255,0.1)] disabled:opacity-50"
+                  :loading="isFinishing"
+                  :disabled="isFinishing"
+                  @click="async () => { isFinishing = true; await finish(); isFinishing = false }"
                 >
                   Explorer GROOV
                 </UButton>

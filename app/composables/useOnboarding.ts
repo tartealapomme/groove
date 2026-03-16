@@ -5,11 +5,13 @@ const selectedArtists = ref<string[]>([])
 let onFinishCallback: (() => void) | null = null
 
 export function useOnboarding() {
+  const { save } = useUserPrefs()
+
   function start(options?: { onFinish?: () => void; initialGenres?: string[]; initialArtists?: string[] }) {
     onFinishCallback = options?.onFinish ?? null
     onboardingStep.value = 'genres'
-    selectedGenres.value = options?.initialGenres ?? []
-    selectedArtists.value = options?.initialArtists ?? []
+    selectedGenres.value = options?.initialGenres ? [...options.initialGenres] : []
+    selectedArtists.value = options?.initialArtists ? [...options.initialArtists] : []
     showOnboarding.value = true
   }
 
@@ -45,11 +47,12 @@ export function useOnboarding() {
     onboardingStep.value = 'confirm'
   }
 
-  function finish() {
-    localStorage.setItem('groov_prefs', JSON.stringify({
+  async function finish() {
+    await save({
       genres: selectedGenres.value,
       artists: selectedArtists.value,
-    }))
+      onboardingCompleted: true,
+    })
     showOnboarding.value = false
     onFinishCallback?.()
     onFinishCallback = null

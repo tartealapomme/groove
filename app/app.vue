@@ -140,7 +140,9 @@ watch([showLogin, showRegister], () => {
   <UApp>
     <NuxtLoadingIndicator color="#fff" :height="2" :throttle="200" />
     <NuxtRouteAnnouncer />
-    <NuxtPage />
+    <NuxtLayout>
+      <NuxtPage />
+    </NuxtLayout>
     <OnboardingOverlay />
 
     <!-- ── Modal Login ── -->

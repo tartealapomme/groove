@@ -3,6 +3,7 @@ import * as z from 'zod'
 import type { FormSubmitEvent, AuthFormField } from '@nuxt/ui'
 import logoNoir from '~/assets/img/groov_logo_noir.svg'
 
+definePageMeta({ layout: 'blank' })
 const toast = useToast()
 
 const fields: AuthFormField[] = [

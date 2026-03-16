@@ -11,9 +11,10 @@ const props = defineProps<{
 }>()
 
 const user = useSupabaseUser()
+const toast = useToast()
 const { openRegister } = useAuthModal()
-const { addToCollection, removeFromCollection, isInCollection } = useUserCollection()
-const { addFavorite, removeFavorite, isFavorite } = useUserFavorites()
+const { addToCollection, removeFromCollection, isInCollection, fetchCollection } = useUserCollection()
+const { addFavorite, removeFavorite, isFavorite, fetchFavorites } = useUserFavorites()
 
 const inCollection = computed(() => isInCollection(props.discogsId))
 const inFavorites = computed(() => isFavorite(props.discogsId))
@@ -30,46 +31,49 @@ function ping(refFlag: Ref<boolean>) {
 }
 
 async function toggleCollection() {
-  if (!user.value) {
-    openRegister()
+  const wasIn = inCollection.value
+  const { error } = wasIn
+    ? await removeFromCollection(props.discogsId)
+    : await addToCollection({
+        discogs_id: props.discogsId,
+        title: props.title,
+        artist: props.artist,
+        year: props.year ?? null,
+        label: props.label ?? null,
+        genre: Array.isArray(props.genre) ? props.genre : (props.genre ? [props.genre] : []),
+        thumb: props.thumb ?? null,
+        cover: props.cover ?? null,
+      })
+  if (error) {
+    if (error.message?.toLowerCase().includes('non connecté') || error.message?.toLowerCase().includes('utilisateur non connecté')) {
+      openRegister()
+    }
+    toast.add({ title: 'Erreur', description: error.message, color: 'error' })
     return
   }
-  if (inCollection.value) {
-    await removeFromCollection(props.discogsId)
-  }
-  else {
-    const genre = Array.isArray(props.genre) ? props.genre : (props.genre ? [props.genre] : [])
-    await addToCollection({
-      discogs_id: props.discogsId,
-      title: props.title,
-      artist: props.artist,
-      year: props.year ?? null,
-      label: props.label ?? null,
-      genre,
-      thumb: props.thumb ?? null,
-      cover: props.cover ?? null,
-    })
-  }
+  await fetchCollection()
   ping(justToggledCollection)
 }
 
 async function toggleFavorite() {
-  if (!user.value) {
-    openRegister()
+  const wasIn = inFavorites.value
+  const { error } = wasIn
+    ? await removeFavorite(props.discogsId)
+    : await addFavorite({
+        discogs_id: props.discogsId,
+        title: props.title,
+        artist: props.artist,
+        thumb: props.thumb ?? null,
+        cover: props.cover ?? null,
+      })
+  if (error) {
+    if (error.message?.toLowerCase().includes('non connecté') || error.message?.toLowerCase().includes('utilisateur non connecté')) {
+      openRegister()
+    }
+    toast.add({ title: 'Erreur', description: error.message, color: 'error' })
     return
   }
-  if (inFavorites.value) {
-    await removeFavorite(props.discogsId)
-  }
-  else {
-    await addFavorite({
-      discogs_id: props.discogsId,
-      title: props.title,
-      artist: props.artist,
-      thumb: props.thumb ?? null,
-      cover: props.cover ?? null,
-    })
-  }
+  await fetchFavorites()
   ping(justToggledFavorite)
 }
 </script>

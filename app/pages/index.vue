@@ -3,17 +3,26 @@ import type { Database } from '~/database.types'
 
 const { openRegister } = useAuthModal()
 const { searchReleases } = useDiscogs()
+const { getRecommendations } = useRecommendations()
 
-// Charger collection et favoris pour les utilisateurs connectés
 const user = useSupabaseUser()
 const { fetchCollection } = useUserCollection()
 const { fetchFavorites } = useUserFavorites()
+
+useSeoMeta({
+  title: 'GROOV — Le marché du vinyle, centralisé',
+  description: 'Agrégateur vinyle : 30M+ pressages mondiaux, filtres par pays, label, état. Trouvez votre pépite.',
+  ogTitle: 'GROOV — Le marché du vinyle, centralisé',
+  ogDescription: 'Agrégateur vinyle : 30M+ pressages mondiaux.',
+})
+
 watch(user, async (u) => {
   if (u) {
     await fetchCollection()
     await fetchFavorites()
   }
 }, { immediate: true })
+
 const searchQuery = ref('')
 const activeFilter = ref('all')
 const isLoading = ref(false)
@@ -43,13 +52,16 @@ const { data: editorialTrends } = await useAsyncData(
       .from('homepage_trends')
       .select('*')
       .order('position', { ascending: true })
-    if (error) {
-      console.error('[groov] homepage_trends error', error)
-      return []
-    }
+    if (error) return []
     return data || []
   },
   { lazy: true },
+)
+
+const { data: personalRecs } = await useAsyncData(
+  'home-recommendations',
+  () => user.value ? getRecommendations(8) : Promise.resolve([]),
+  { lazy: true, watch: [user] },
 )
 
 const vinyls = computed(() => {
@@ -92,7 +104,6 @@ const trendingArtists = computed(() => {
       artist: t.artist,
     }))
   }
-
   const byArtist = new Map<string, number>()
   for (const v of vinyls.value) {
     const name = (v.artist || '').trim()
@@ -119,18 +130,25 @@ async function onFilterChange(genre: string) {
     isLoading.value = false
   }
 }
+
+const recsCarouselRef = ref<HTMLElement | null>(null)
+function scrollRecs(dir: 'left' | 'right') {
+  const el = recsCarouselRef.value
+  if (!el) return
+  const cardWidth = el.querySelector('[data-rec-card]')?.clientWidth ?? 0
+  const gap = 20
+  const scrollAmount = (cardWidth + gap) * (dir === 'left' ? -1 : 1)
+  el.scrollBy({ left: scrollAmount, behavior: 'smooth' })
+}
 </script>
 
 <template>
-  <div class="min-h-screen overflow-x-hidden pb-[env(safe-area-inset-bottom,0px)]">
-    <AppHeader />
-
+  <div>
     <SubNav />
 
     <!-- ─── HERO ─── -->
     <section class="border-b border-g-100 px-4 pb-10 pt-8 sm:px-6 sm:pb-12 sm:pt-14">
       <div class="mx-auto max-w-[1400px]">
-        <!-- Nom de la plateforme -->
         <p class="mb-4 text-[11px] font-semibold uppercase tracking-[0.2em] text-g-400 sm:mb-6 sm:text-xs sm:tracking-[0.25em]">
           GROOV — Agrégateur vinyle
         </p>
@@ -166,7 +184,6 @@ async function onFilterChange(genre: string) {
               </div>
             </div>
 
-            <!-- Mobile search -->
             <div class="mt-6 md:hidden">
               <div class="flex min-h-[44px] items-center rounded-lg border border-g-200 bg-g-50 px-4 py-2.5">
                 <UIcon name="i-lucide-search" class="mr-3 h-4 w-4 shrink-0 text-g-400" />
@@ -203,7 +220,67 @@ async function onFilterChange(genre: string) {
       </div>
     </section>
 
-    <!-- ─── FILTERS (fond blanc) ─── -->
+    <!-- ─── PERSONAL RECOMMENDATIONS (carousel) ─── -->
+    <section v-if="personalRecs?.length" class="border-b border-g-100 px-4 py-8 sm:px-6 sm:py-10">
+      <div class="mx-auto max-w-[1400px]">
+        <div class="mb-6 flex items-end justify-between">
+          <div>
+            <p class="text-[11px] font-medium uppercase tracking-[0.2em] text-g-400 sm:text-xs">Pour vous</p>
+            <h2 class="mt-1 text-xl font-bold tracking-tight text-g-950 sm:text-2xl">Recommandations</h2>
+          </div>
+          <NuxtLink to="/profil" class="cursor-pointer text-xs font-medium text-g-500 transition-colors hover:text-g-950">
+            Voir mon profil →
+          </NuxtLink>
+        </div>
+        <div class="relative">
+          <button
+            type="button"
+            class="absolute left-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-g-200 bg-g-white text-g-600 shadow-lg transition-colors hover:border-g-400 hover:bg-g-50 hover:text-g-950 sm:-left-2"
+            aria-label="Précédent"
+            @click="scrollRecs('left')"
+          >
+            <UIcon name="i-lucide-chevron-left" class="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            class="absolute right-0 top-1/2 z-10 flex h-10 w-10 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full border border-g-200 bg-g-white text-g-600 shadow-lg transition-colors hover:border-g-400 hover:bg-g-50 hover:text-g-950 sm:-right-2"
+            aria-label="Suivant"
+            @click="scrollRecs('right')"
+          >
+            <UIcon name="i-lucide-chevron-right" class="h-5 w-5" />
+          </button>
+          <div
+            ref="recsCarouselRef"
+            class="-mx-4 overflow-x-auto scroll-smooth scroll-snap-x scroll-snap-mandatory scrollbar-none sm:-mx-6"
+          >
+            <div class="flex gap-3 px-4 pb-2 sm:gap-4 sm:px-6">
+              <div
+                v-for="rec in personalRecs"
+                :key="rec.id"
+                data-rec-card
+                class="flex shrink-0 flex-col scroll-snap-start"
+                :class="[
+                  'w-[calc(50%-6px)] sm:w-[calc(33.333%-11px)] md:w-[calc(25%-12px)] lg:w-[calc(20%-16px)]',
+                ]"
+              >
+                <VinylCard
+                  :id="rec.id"
+                  :title="rec.title"
+                  :artist="rec.artist"
+                  :year="rec.year"
+                  :thumb="rec.thumb"
+                  :cover="rec.cover"
+                  :community="rec.community"
+                />
+                <p class="mt-1 truncate text-[10px] text-g-400">{{ rec.reason }}</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ─── FILTERS ─── -->
     <div class="sticky top-[6.5rem] z-30 mt-3 border-b border-g-100 bg-g-50/95 backdrop-blur-sm sm:top-[8.5rem]">
       <div class="mx-auto max-w-[1400px]">
         <div class="overflow-x-auto scrollbar-none px-4 sm:px-6">
@@ -228,9 +305,8 @@ async function onFilterChange(genre: string) {
       </div>
     </div>
 
-    <!-- ─── GRID (fond blanc) ─── -->
+    <!-- ─── GRID ─── -->
     <main class="mx-auto max-w-[1400px] px-4 py-8 sm:px-6 sm:py-10">
-      <!-- Loading -->
       <div v-if="isLoading || isInitialLoading" class="flex items-center justify-center py-24">
         <UIcon name="i-lucide-loader-2" class="h-8 w-8 animate-spin text-g-400" />
       </div>
@@ -239,64 +315,21 @@ async function onFilterChange(genre: string) {
         v-else-if="filteredVinyls.length"
         class="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 lg:grid-cols-5"
       >
-        <NuxtLink
+        <VinylCard
           v-for="vinyl in filteredVinyls"
           :key="vinyl.id"
-          :to="`/vinyl/${vinyl.id}`"
-          class="group cursor-pointer"
-        >
-          <!-- Cover -->
-          <div class="relative aspect-square overflow-hidden rounded-lg bg-g-100">
-            <img
-              v-if="vinyl.cover || vinyl.thumb"
-              :src="vinyl.cover || vinyl.thumb"
-              :alt="vinyl.title"
-              class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-              loading="lazy"
-              decoding="async"
-            >
-            <div v-else class="flex h-full w-full items-center justify-center bg-g-200">
-              <span class="text-4xl font-black text-g-400/30 sm:text-5xl">
-                {{ (vinyl.artist || '').split(' ').map((w: string) => w[0]).join('') }}
-              </span>
-            </div>
-
-            <VinylCardActions
-              :discogs-id="vinyl.id"
-              :title="vinyl.title"
-              :artist="vinyl.artist"
-              :thumb="vinyl.thumb"
-              :cover="vinyl.cover"
-              :label="vinyl.label"
-              :genre="vinyl.genre"
-              :year="vinyl.year"
-            />
-
-            <!-- Hover overlay -->
-            <div class="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-g-black/80 via-g-black/20 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-              <div class="flex w-full items-end justify-between p-3">
-                <span v-if="vinyl.community" class="rounded-lg bg-g-black/40 px-2 py-1 text-[11px] font-medium text-g-white">
-                  {{ vinyl.community.want }} wants
-                </span>
-                <span class="rounded-lg bg-g-black/40 px-2 py-1 text-[11px] font-medium text-g-white">
-                  Voir →
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <!-- Info -->
-          <div class="mt-2 min-w-0 sm:mt-3">
-            <p class="truncate text-sm font-semibold text-g-950">{{ vinyl.title }}</p>
-            <p class="mt-0.5 truncate text-xs text-g-500">{{ vinyl.artist }}</p>
-            <div class="mt-1.5 flex items-center justify-between sm:mt-2">
-              <span class="truncate text-[11px] text-g-400">{{ vinyl.label }} · {{ vinyl.year }}</span>
-            </div>
-          </div>
-        </NuxtLink>
+          :id="vinyl.id"
+          :title="vinyl.title"
+          :artist="vinyl.artist"
+          :year="vinyl.year"
+          :label="vinyl.label"
+          :genre="vinyl.genre"
+          :thumb="vinyl.thumb"
+          :cover="vinyl.cover"
+          :community="vinyl.community"
+        />
       </div>
 
-      <!-- Empty state -->
       <div v-else class="py-16 text-center sm:py-24">
         <UIcon name="i-lucide-disc-3" class="mx-auto mb-4 h-10 w-10 text-g-200 sm:h-12 sm:w-12" />
         <p class="text-sm text-g-500">Aucun résultat trouvé.</p>
@@ -308,7 +341,6 @@ async function onFilterChange(genre: string) {
         </button>
       </div>
 
-      <!-- Voir tout -->
       <div v-if="filteredVinyls.length" class="mt-10 text-center sm:mt-14">
         <NuxtLink to="/explore" class="inline-block">
           <UButton
@@ -342,7 +374,5 @@ async function onFilterChange(genre: string) {
         </div>
       </div>
     </section>
-
-    <AppFooter />
   </div>
 </template>

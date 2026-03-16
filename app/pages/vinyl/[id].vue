@@ -5,6 +5,9 @@ const user = useSupabaseUser()
 const { addToCollection, removeFromCollection, isInCollection, fetchCollection } = useUserCollection()
 const { addFavorite, removeFavorite, isFavorite, fetchFavorites } = useUserFavorites()
 
+const { getReviewsForVinyl, getUserReview, submitReview, deleteReview, getAverageRating } = useVinylReviews()
+const toast = useToast()
+
 const justToggledCollection = ref(false)
 const justToggledFavorite = ref(false)
 
@@ -16,23 +19,12 @@ watch(user, async (u) => {
 }, { immediate: true })
 
 async function toggleCollection() {
-  console.log('[groov] toggleCollection - user', user.value)
-  if (!user.value) {
-    openRegister()
-    return
-  }
-  if (vinyl.value) {
-    console.log('[groov] toggleCollection - vinyl', {
-      id: vinyl.value.id,
-      title: vinyl.value.title,
-      inCollection: isInCollection(vinyl.value.id),
-    })
-    if (isInCollection(vinyl.value.id)) {
-      const { error } = await removeFromCollection(vinyl.value.id)
-      if (error) console.error('[groov] removeFromCollection error', error)
-    }
-    else {
-      const { error } = await addToCollection({
+  if (!vinyl.value) return
+
+  const wasIn = isInCollection(vinyl.value.id)
+  const { error } = wasIn
+    ? await removeFromCollection(vinyl.value.id)
+    : await addToCollection({
         discogs_id: vinyl.value.id,
         title: vinyl.value.title,
         artist: artistName.value,
@@ -42,40 +34,49 @@ async function toggleCollection() {
         thumb: coverThumb.value,
         cover: coverUrl.value,
       })
-      if (error) console.error('[groov] addToCollection error', error)
+  if (error) {
+    if (error.message?.toLowerCase().includes('non connecté') || error.message?.toLowerCase().includes('utilisateur non connecté')) {
+      openRegister()
     }
-    justToggledCollection.value = false
-    requestAnimationFrame(() => {
-      justToggledCollection.value = true
-      setTimeout(() => { justToggledCollection.value = false }, 250)
-    })
+    toast.add({ title: 'Erreur', description: error.message, color: 'error' })
+    return
   }
+  toast.add({ title: wasIn ? 'Retiré de la collection' : 'Ajouté à la collection', color: 'success' })
+  await fetchCollection()
+  justToggledCollection.value = false
+  requestAnimationFrame(() => {
+    justToggledCollection.value = true
+    setTimeout(() => { justToggledCollection.value = false }, 250)
+  })
 }
 
 async function toggleFavorite() {
-  if (!user.value) {
-    openRegister()
-    return
-  }
-  if (vinyl.value) {
-    if (isFavorite(vinyl.value.id)) {
-      await removeFavorite(vinyl.value.id)
-    }
-    else {
-      await addFavorite({
+  if (!vinyl.value) return
+
+  const wasIn = isFavorite(vinyl.value.id)
+  const { error } = wasIn
+    ? await removeFavorite(vinyl.value.id)
+    : await addFavorite({
         discogs_id: vinyl.value.id,
         title: vinyl.value.title,
         artist: artistName.value,
         thumb: coverThumb.value,
         cover: coverUrl.value,
       })
+  if (error) {
+    if (error.message?.toLowerCase().includes('non connecté') || error.message?.toLowerCase().includes('utilisateur non connecté')) {
+      openRegister()
     }
-    justToggledFavorite.value = false
-    requestAnimationFrame(() => {
-      justToggledFavorite.value = true
-      setTimeout(() => { justToggledFavorite.value = false }, 250)
-    })
+    toast.add({ title: 'Erreur', description: error.message, color: 'error' })
+    return
   }
+  toast.add({ title: wasIn ? 'Retiré des favoris' : 'Ajouté aux favoris', color: 'success' })
+  await fetchFavorites()
+  justToggledFavorite.value = false
+  requestAnimationFrame(() => {
+    justToggledFavorite.value = true
+    setTimeout(() => { justToggledFavorite.value = false }, 250)
+  })
 }
 
 const route = useRoute()
@@ -96,6 +97,12 @@ const formatInfo = computed(() => {
   if (!vinyl.value?.formats?.[0]) return ''
   const f = vinyl.value.formats[0]
   return [f.name, ...(f.descriptions || [])].join(', ')
+})
+
+useSeoMeta({
+  title: () => vinyl.value ? `${vinyl.value.title} — ${artistName.value} | GROOV` : 'Chargement… | GROOV',
+  description: () => vinyl.value ? `${artistName.value} — ${vinyl.value.title} (${vinyl.value.year}). ${vinyl.value.genres?.join(', ')}. Prix et détails sur GROOV.` : '',
+  ogTitle: () => vinyl.value ? `${vinyl.value.title} — ${artistName.value}` : 'GROOV',
 })
 
 const activeSide = ref('all')
@@ -161,12 +168,91 @@ const { data: recommendations } = await useAsyncData(
   },
   { lazy: true, watch: [vinyl] },
 )
+
+// ── Reviews ──
+interface ReviewDisplay {
+  id: string
+  user_id: string
+  discogs_id: number
+  rating: number
+  title: string | null
+  body: string | null
+  created_at: string
+  updated_at: string
+  profiles?: { display_name: string | null, avatar_url: string | null, email: string | null } | null
+}
+const reviews = ref<ReviewDisplay[]>([])
+const myReview = ref<ReviewDisplay | null>(null)
+const showReviewForm = ref(false)
+const reviewRating = ref(4)
+const reviewTitle = ref('')
+const reviewBody = ref('')
+const isSubmittingReview = ref(false)
+const averageRating = computed(() => getAverageRating(reviews.value))
+
+async function loadReviews() {
+  const id = Number(releaseId)
+  if (!id) return
+  reviews.value = await getReviewsForVinyl(id) as ReviewDisplay[]
+  if (user.value) {
+    myReview.value = await getUserReview(id) as ReviewDisplay | null
+    if (myReview.value) {
+      reviewRating.value = myReview.value.rating
+      reviewTitle.value = myReview.value.title || ''
+      reviewBody.value = myReview.value.body || ''
+    }
+  }
+}
+
+async function onSubmitReview() {
+  isSubmittingReview.value = true
+  const vinylInfo = vinyl.value
+    ? {
+        title: vinyl.value.title,
+        artist: artistName.value,
+        thumb: coverThumb.value,
+      }
+    : undefined
+  const { error } = await submitReview(Number(releaseId), reviewRating.value, reviewTitle.value, reviewBody.value, vinylInfo)
+  isSubmittingReview.value = false
+  if (error) {
+    toast.add({ title: 'Erreur', description: error.message || 'Impossible de publier la review.', color: 'error' })
+    return
+  }
+  toast.add({ title: 'Review publiée', color: 'success' })
+  showReviewForm.value = false
+  await loadReviews()
+}
+
+async function onDeleteReview() {
+  const { error } = await deleteReview(Number(releaseId))
+  if (error) return
+  myReview.value = null
+  reviewRating.value = 4
+  reviewTitle.value = ''
+  reviewBody.value = ''
+  toast.add({ title: 'Review supprimée', color: 'success' })
+  await loadReviews()
+}
+
+function getReviewerName(review: (typeof reviews.value)[number]) {
+  const p = (review as any).profiles
+  return p?.display_name || p?.email?.split('@')[0] || 'Utilisateur'
+}
+
+function getReviewerAvatar(review: (typeof reviews.value)[number]) {
+  return (review as any).profiles?.avatar_url
+}
+
+function formatReviewDate(date: string) {
+  return new Date(date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+watch(vinyl, () => { if (vinyl.value) loadReviews() }, { immediate: true })
 </script>
 
 <template>
-  <div class="min-h-screen pb-[env(safe-area-inset-bottom,0px)]">
-    <AppHeader />
-
+  <div>
     <SubNav />
 
     <!-- ─── LOADING ─── -->
@@ -198,7 +284,6 @@ const { data: recommendations } = await useAsyncData(
       <!-- ─── MAIN DETAILS ─── -->
       <section class="px-4 py-6 sm:px-6 sm:py-10">
         <div class="mx-auto grid max-w-[1400px] items-start gap-6 lg:grid-cols-[400px_1fr] lg:gap-10">
-          <!-- Cover (sticky) -->
           <div class="self-start lg:sticky lg:top-[8.5rem]">
             <div class="aspect-square overflow-hidden rounded-lg bg-g-100">
               <img
@@ -215,7 +300,6 @@ const { data: recommendations } = await useAsyncData(
             </div>
           </div>
 
-          <!-- Infos -->
           <div class="min-w-0">
             <p class="truncate text-sm font-medium uppercase tracking-[0.2em] text-g-400 sm:text-xs">
               {{ vinyl.genres?.join(', ') }} {{ vinyl.styles?.length ? `· ${vinyl.styles.join(', ')}` : '' }}
@@ -227,7 +311,7 @@ const { data: recommendations } = await useAsyncData(
               <button
                 class="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-all"
                 :class="[
-                  vinyl && isInCollection(vinyl.id)
+                  isInCollection(vinyl.id)
                     ? 'border border-g-200 bg-g-50 text-g-700 hover:border-red-400 hover:bg-red-50 hover:text-red-500'
                     : 'bg-g-black text-g-white hover:bg-g-700',
                   justToggledCollection ? 'scale-[1.02]' : 'scale-100',
@@ -235,16 +319,16 @@ const { data: recommendations } = await useAsyncData(
                 @click="toggleCollection"
               >
                 <UIcon
-                  :name="vinyl && isInCollection(vinyl.id) ? 'i-lucide-check' : 'i-lucide-plus'"
+                  :name="isInCollection(vinyl.id) ? 'i-lucide-check' : 'i-lucide-plus'"
                   class="h-4 w-4 shrink-0 transition-transform"
                   :class="justToggledCollection ? 'scale-125' : 'scale-100'"
                 />
-                {{ vinyl && isInCollection(vinyl.id) ? 'Dans ma collection' : 'Ajouter à ma collection' }}
+                {{ isInCollection(vinyl.id) ? 'Dans ma collection' : 'Ajouter à ma collection' }}
               </button>
               <button
                 class="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-lg border px-4 py-2.5 text-sm transition-all"
                 :class="[
-                  vinyl && isFavorite(vinyl.id)
+                  isFavorite(vinyl.id)
                     ? 'border-red-200 bg-red-50 text-red-600 hover:border-red-400 hover:bg-red-100'
                     : 'border-g-200 text-g-500 hover:border-g-400 hover:text-g-950',
                   justToggledFavorite ? 'scale-[1.02]' : 'scale-100',
@@ -254,9 +338,9 @@ const { data: recommendations } = await useAsyncData(
                 <UIcon
                   name="i-lucide-heart"
                   class="h-4 w-4 shrink-0 transition-transform"
-                  :class="[{ 'fill-current': vinyl && isFavorite(vinyl.id) }, justToggledFavorite ? 'scale-125' : 'scale-100']"
+                  :class="[{ 'fill-current': isFavorite(vinyl.id) }, justToggledFavorite ? 'scale-125' : 'scale-100']"
                 />
-                {{ vinyl && isFavorite(vinyl.id) ? 'Dans la wishlist' : 'Wishlist' }}
+                {{ isFavorite(vinyl.id) ? 'Dans la wishlist' : 'Wishlist' }}
               </button>
             </div>
 
@@ -279,7 +363,6 @@ const { data: recommendations } = await useAsyncData(
               </div>
             </div>
 
-            <!-- Country + Community -->
             <div class="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 sm:gap-4">
               <div class="min-w-0 rounded-lg border border-g-100 bg-g-white p-3">
                 <p class="text-[11px] font-medium uppercase tracking-wider text-g-400">Pays</p>
@@ -307,17 +390,8 @@ const { data: recommendations } = await useAsyncData(
                   <span v-if="vinyl.marketplace?.num_for_sale" class="text-xs text-g-400">
                     {{ vinyl.marketplace.num_for_sale }} exemplaire{{ vinyl.marketplace.num_for_sale > 1 ? 's' : '' }} en vente
                   </span>
-                  <button
-                    class="flex min-h-[44px] min-w-[44px] cursor-pointer items-center justify-center rounded-lg text-g-400 transition-all hover:bg-g-100 hover:text-g-950"
-                    title="Créer une alerte"
-                    @click="openRegister"
-                  >
-                    <UIcon name="i-lucide-bell" class="h-4 w-4" />
-                  </button>
                 </div>
               </div>
-
-              <!-- Prix par état -->
               <div v-if="sortedPrices.length" class="divide-y divide-g-100">
                 <div
                   v-for="(item, i) in sortedPrices"
@@ -344,8 +418,6 @@ const { data: recommendations } = await useAsyncData(
                   </span>
                 </div>
               </div>
-
-              <!-- Prix le plus bas + CTA -->
               <div class="flex flex-col gap-4 border-t border-g-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <p class="text-[11px] font-medium uppercase tracking-wider text-g-400">À partir de</p>
@@ -356,6 +428,7 @@ const { data: recommendations } = await useAsyncData(
                 <a
                   :href="`https://www.discogs.com/sell/release/${releaseId}?ev=rb`"
                   target="_blank"
+                  rel="noopener"
                   class="flex min-h-[44px] cursor-pointer items-center justify-center gap-2 rounded-lg bg-g-black px-5 py-2.5 text-sm font-medium text-g-white transition-colors hover:bg-g-950"
                 >
                   Acheter sur Discogs
@@ -393,7 +466,6 @@ const { data: recommendations } = await useAsyncData(
                   </button>
                 </div>
               </div>
-
               <div class="mt-3 overflow-x-auto overflow-y-hidden rounded-lg border border-g-100">
                 <div
                   v-for="(track, i) in filteredTracklist"
@@ -413,55 +485,191 @@ const { data: recommendations } = await useAsyncData(
         </div>
       </section>
 
+      <!-- ─── REVIEWS ─── -->
+      <section class="border-t border-g-100 px-4 py-8 sm:px-6 sm:py-10">
+        <div class="mx-auto max-w-[1400px]">
+          <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <p class="text-[11px] font-medium uppercase tracking-[0.2em] text-g-400 sm:text-xs">Communauté</p>
+              <h2 class="mt-1 text-xl font-bold tracking-tight text-g-950 sm:text-2xl">
+                Avis
+                <span v-if="reviews.length" class="text-g-400">({{ reviews.length }})</span>
+              </h2>
+              <div v-if="averageRating" class="mt-1 flex items-center gap-2">
+                <div class="flex items-center gap-0.5">
+                  <UIcon
+                    v-for="i in 5"
+                    :key="i"
+                    name="i-lucide-star"
+                    class="h-4 w-4"
+                    :class="i <= Math.round(averageRating) ? 'fill-current text-amber-400' : 'text-g-200'"
+                  />
+                </div>
+                <span class="font-[family-name:var(--font-mono)] text-sm font-semibold text-g-950">{{ averageRating.toFixed(1) }}</span>
+              </div>
+            </div>
+            <button
+              v-if="user && !showReviewForm"
+              class="flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg bg-g-black px-5 py-2.5 text-sm font-medium text-g-white transition-colors hover:bg-g-700"
+              @click="showReviewForm = true"
+            >
+              <UIcon :name="myReview ? 'i-lucide-pencil' : 'i-lucide-plus'" class="h-4 w-4" />
+              {{ myReview ? 'Modifier ma review' : 'Écrire une review' }}
+            </button>
+          </div>
+
+          <!-- Review form -->
+          <Transition
+            enter-active-class="transition duration-200 ease-out"
+            enter-from-class="opacity-0 -translate-y-2"
+            enter-to-class="opacity-100 translate-y-0"
+            leave-active-class="transition duration-150 ease-in"
+            leave-from-class="opacity-100"
+            leave-to-class="opacity-0"
+          >
+            <div v-if="showReviewForm" class="mb-6 overflow-hidden rounded-lg border border-g-200 bg-g-white">
+              <div class="border-b border-g-100 px-5 py-4">
+                <h3 class="text-sm font-semibold text-g-950">{{ myReview ? 'Modifier' : 'Écrire' }} votre avis</h3>
+              </div>
+              <div class="space-y-4 px-5 py-5">
+                <!-- Rating -->
+                <div>
+                  <p class="mb-2 text-xs font-medium text-g-500">Note</p>
+                  <div class="flex items-center gap-1">
+                    <button
+                      v-for="i in 5"
+                      :key="i"
+                      class="cursor-pointer p-0.5 transition-transform hover:scale-110"
+                      @click="reviewRating = i"
+                    >
+                      <UIcon
+                        name="i-lucide-star"
+                        class="h-7 w-7 transition-colors"
+                        :class="i <= reviewRating ? 'fill-current text-amber-400' : 'text-g-200 hover:text-amber-200'"
+                      />
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <p class="mb-1.5 text-xs font-medium text-g-500">Titre (optionnel)</p>
+                  <input
+                    v-model="reviewTitle"
+                    type="text"
+                    placeholder="En quelques mots…"
+                    class="w-full rounded-lg border border-g-200 bg-g-50 px-4 py-2.5 text-sm text-g-950 outline-none placeholder:text-g-400 focus:border-g-400"
+                  >
+                </div>
+                <div>
+                  <p class="mb-1.5 text-xs font-medium text-g-500">Votre avis</p>
+                  <textarea
+                    v-model="reviewBody"
+                    rows="3"
+                    placeholder="Qualité du pressage, son, pochette, édition…"
+                    class="w-full resize-none rounded-lg border border-g-200 bg-g-50 px-4 py-2.5 text-sm text-g-950 outline-none placeholder:text-g-400 focus:border-g-400"
+                  />
+                </div>
+                <div class="flex items-center gap-2">
+                  <UButton
+                    class="cursor-pointer rounded-lg bg-g-black px-5 py-2.5 text-sm font-medium text-g-white hover:bg-g-700 disabled:opacity-50"
+                    :loading="isSubmittingReview"
+                    :disabled="isSubmittingReview"
+                    @click="onSubmitReview"
+                  >
+                    Publier
+                  </UButton>
+                  <button
+                    class="cursor-pointer rounded-lg px-4 py-2.5 text-sm text-g-500 transition-colors hover:text-g-950"
+                    @click="showReviewForm = false"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    v-if="myReview"
+                    class="ml-auto cursor-pointer rounded-lg px-4 py-2.5 text-sm text-red-400 transition-colors hover:text-red-600"
+                    @click="onDeleteReview"
+                  >
+                    Supprimer
+                  </button>
+                </div>
+              </div>
+            </div>
+          </Transition>
+
+          <!-- Reviews list -->
+          <div v-if="reviews.length" class="space-y-4">
+            <div
+              v-for="review in reviews"
+              :key="review.id"
+              class="rounded-lg border border-g-100 bg-g-white px-5 py-4"
+              :class="{ 'ring-1 ring-g-300': review.user_id === user?.id }"
+            >
+              <div class="flex items-start gap-3">
+                <div class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-g-100">
+                  <img
+                    v-if="getReviewerAvatar(review)"
+                    :src="getReviewerAvatar(review)"
+                    class="h-full w-full object-cover"
+                  >
+                  <span v-else class="text-xs font-bold text-g-400">
+                    {{ getReviewerName(review).substring(0, 2).toUpperCase() }}
+                  </span>
+                </div>
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-g-950">{{ getReviewerName(review) }}</span>
+                    <span v-if="review.user_id === user?.id" class="rounded bg-g-100 px-1.5 py-0.5 text-[10px] font-medium text-g-500">Vous</span>
+                    <span class="text-[11px] text-g-400">{{ formatReviewDate(review.created_at) }}</span>
+                  </div>
+                  <div class="mt-1 flex items-center gap-0.5">
+                    <UIcon
+                      v-for="i in 5"
+                      :key="i"
+                      name="i-lucide-star"
+                      class="h-3.5 w-3.5"
+                      :class="i <= review.rating ? 'fill-current text-amber-400' : 'text-g-200'"
+                    />
+                  </div>
+                  <p v-if="review.title" class="mt-2 text-sm font-medium text-g-950">{{ review.title }}</p>
+                  <p v-if="review.body" class="mt-1 text-sm leading-relaxed text-g-500">{{ review.body }}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div v-else-if="!showReviewForm" class="py-8 text-center">
+            <UIcon name="i-lucide-message-square" class="mx-auto mb-3 h-8 w-8 text-g-200" />
+            <p class="text-sm text-g-500">Aucun avis pour le moment.</p>
+            <button
+              v-if="user"
+              class="mt-3 cursor-pointer text-sm font-medium text-g-950 underline underline-offset-4"
+              @click="showReviewForm = true"
+            >
+              Soyez le premier
+            </button>
+          </div>
+        </div>
+      </section>
+
       <!-- ─── RECOMMENDATIONS ─── -->
       <section v-if="recommendations?.length" class="border-t border-g-100 px-4 py-8 sm:px-6 sm:py-10">
         <div class="mx-auto max-w-[1400px]">
           <p class="text-[11px] font-medium uppercase tracking-[0.2em] text-g-400 sm:text-xs">Vous aimerez aussi</p>
           <h2 class="mt-1 text-xl font-bold tracking-tight text-g-950 sm:text-2xl">Recommandations</h2>
-
           <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-5 md:grid-cols-4 lg:grid-cols-5">
-            <NuxtLink
+            <VinylCard
               v-for="rec in recommendations"
               :key="rec.id"
-              :to="`/vinyl/${rec.id}`"
-              class="group cursor-pointer"
-            >
-              <div class="relative aspect-square overflow-hidden rounded-lg bg-g-100">
-                <img
-                  v-if="rec.cover || rec.thumb"
-                  :src="rec.cover || rec.thumb"
-                  :alt="rec.title"
-                  class="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  loading="lazy"
-                  decoding="async"
-                >
-                <div v-else class="flex h-full w-full items-center justify-center bg-g-200">
-                  <span class="text-3xl font-black text-g-400/30 sm:text-4xl lg:text-5xl">
-                    {{ (rec.artist || '').split(' ').map((w: string) => w[0]).join('') || '?' }}
-                  </span>
-                </div>
-                <div class="pointer-events-none absolute inset-0 flex items-end bg-gradient-to-t from-g-black/80 via-g-black/20 to-transparent opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                  <div class="flex w-full items-end justify-between p-3">
-                    <span v-if="rec.community" class="rounded-lg bg-g-black/40 px-2 py-1 text-[11px] font-medium text-g-white">
-                      {{ rec.community.want }} wants
-                    </span>
-                    <span class="rounded-lg bg-g-black/40 px-2 py-1 text-[11px] font-medium text-g-white">
-                      Voir →
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div class="mt-2 min-w-0 sm:mt-3">
-                <p class="truncate text-sm font-semibold text-g-950">{{ rec.title }}</p>
-                <p class="mt-0.5 truncate text-xs text-g-500">{{ rec.artist }}</p>
-                <span class="mt-1 text-[11px] text-g-400">{{ rec.year }}</span>
-              </div>
-            </NuxtLink>
+              :id="rec.id"
+              :title="rec.title"
+              :artist="rec.artist"
+              :year="rec.year"
+              :thumb="rec.thumb"
+              :cover="rec.cover"
+              :community="rec.community"
+            />
           </div>
         </div>
       </section>
     </template>
-
-    <AppFooter />
   </div>
 </template>

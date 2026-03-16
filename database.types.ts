@@ -99,19 +99,142 @@ export type Database = {
           id: string
           email: string | null
           role: 'user' | 'admin'
+          display_name: string | null
+          avatar_url: string | null
+          bio: string | null
           created_at: string | null
         }
         Insert: {
           id?: string
           email?: string | null
           role?: 'user' | 'admin'
+          display_name?: string | null
+          avatar_url?: string | null
+          bio?: string | null
           created_at?: string | null
         }
         Update: {
           id?: string
           email?: string | null
           role?: 'user' | 'admin'
+          display_name?: string | null
+          avatar_url?: string | null
+          bio?: string | null
           created_at?: string | null
+        }
+        Relationships: []
+      }
+      vinyl_reviews: {
+        Row: {
+          id: string
+          user_id: string
+          discogs_id: number
+          rating: number
+          title: string | null
+          body: string | null
+          vinyl_title: string | null
+          vinyl_artist: string | null
+          vinyl_thumb: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          discogs_id: number
+          rating: number
+          title?: string | null
+          body?: string | null
+          vinyl_title?: string | null
+          vinyl_artist?: string | null
+          vinyl_thumb?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          discogs_id?: number
+          rating?: number
+          title?: string | null
+          body?: string | null
+          vinyl_title?: string | null
+          vinyl_artist?: string | null
+          vinyl_thumb?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_follows: {
+        Row: {
+          id: string
+          follower_id: string
+          following_id: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          follower_id: string
+          following_id: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          follower_id?: string
+          following_id?: string
+          created_at?: string
+        }
+        Relationships: []
+      }
+      user_badges: {
+        Row: {
+          id: string
+          user_id: string
+          badge_key: string
+          unlocked_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          badge_key: string
+          unlocked_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          badge_key?: string
+          unlocked_at?: string
+        }
+        Relationships: []
+      }
+      user_preferences: {
+        Row: {
+          id: string
+          user_id: string
+          genres: string[]
+          artists: string[]
+          onboarding_completed: boolean
+          updated_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          genres?: string[]
+          artists?: string[]
+          onboarding_completed?: boolean
+          updated_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          genres?: string[]
+          artists?: string[]
+          onboarding_completed?: boolean
+          updated_at?: string
+          created_at?: string
         }
         Relationships: []
       }

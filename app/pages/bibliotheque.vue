@@ -2,8 +2,11 @@
 const { extractColor } = useDominantColor()
 const { collection, fetchCollection, removeFromCollection } = useUserCollection()
 
-definePageMeta({
-  middleware: 'auth',
+definePageMeta({ middleware: 'auth' })
+
+useSeoMeta({
+  title: 'Ma Collection — GROOV',
+  description: 'Gérez votre collection de vinyles. Vitrine 3D, grille, stats et Rewind.',
 })
 
 type ViewMode = 'showcase' | 'grid'
@@ -200,9 +203,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen overflow-x-hidden pb-[env(safe-area-inset-bottom,0px)]">
-    <AppHeader />
-
+  <div>
     <SubNav />
 
     <!-- ─── TITLE + STATS ─── -->
@@ -459,8 +460,6 @@ onUnmounted(() => {
         </div>
       </div>
     </section>
-
-    <AppFooter />
 
     <RewindOverlay v-if="displayCollection.length" v-model:show="showRewind" :results="rawResults" />
   </div>
